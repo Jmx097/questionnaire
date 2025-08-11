@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import GlobalLightRays from '@/components/backgrounds/GlobalLightRays';
 
 export const metadata: Metadata = {
   title: "AI Onboarding Questionnaire",
