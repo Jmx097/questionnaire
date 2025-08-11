@@ -1,7 +1,10 @@
 name: Quiz Scaffold
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - feat/next-quiz-web
+     workflow_dispatch:
 
 jobs:
   scaffold:
