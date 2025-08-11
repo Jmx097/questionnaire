@@ -1,667 +1,556 @@
 name: Quiz Scaffold
-
 on:
-  push:
-    branches:
-      - feat/next-quiz-web
-     workflow_dispatch:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Target branch to write to"
+        required: true
+        default: "feat/next-quiz-web"
+
+permissions:
+  contents: write
 
 jobs:
   scaffold:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout target branch
+        uses: actions/checkout@v4
         with:
-          ref: feat/next-quiz-web
+          ref: ${{ github.event.inputs.branch }}
+          fetch-depth: 0
 
-      - name: Setup git user
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-
-      - name: Scaffold files
+      - name: Write quiz files
         shell: bash
         run: |
-          set -eux
-          # Remove mis-nested LightRays
-          rm -rf web/components/backgrounds/components || true
-          # Create directories
-          mkdir -p web/components/backgrounds web/components/text web/components/experiences web/components/cursor web/components/bento web/components/reveal web/components/questions web/components/results
-          mkdir -p web/app/start web/app/quiz/1 web/app/quiz/2 web/app/quiz/3 web/app/quiz/4 web/app/quiz/5 web/app/quiz/result
-          mkdir -p web/config web/lib .github/workflows
+          set -euo pipefail
 
-          # Write LightRays.tsx
-          cat > web/components/backgrounds/LightRays.tsx <<'EOF'
-          // LightRays.tsx
-          "use client";
-          import React, { useEffect, useRef } from "react";
+          mkdir -p web/app \
+                   web/app/quiz/{1,2,3,4,5,result} \
+                   web/components/{backgrounds,text,experiences,cursor,bento,reveal,questions,results} \
+                   web/lib web/config
 
-          export function LightRaysBackground({
-            speedMs = 16000,
-            intensity = 0.10,
-            color = "255,255,255",
-          }: { speedMs?: number; intensity?: number; color?: string }) {
-            const ref = useRef<HTMLDivElement>(null);
-            useEffect(() => {
-              if (!ref.current) return;
-              ref.current.style.setProperty("--ray-rot-speed", `${speedMs}ms`);
-              ref.current.style.setProperty("--ray-alpha", `${intensity}`);
-              ref.current.style.setProperty("--ray-color", color);
-            }, [speedMs, intensity, color]);
-            return (
-              <div aria-hidden ref={ref} className="fixed inset-0 -z-10 overflow-hidden bg-black">
-                {/* Layer 1: soft radial glow */}
-                <div
-                  className="pointer-events-none absolute inset-0"
-                  style={{
-                    background:
-                      "radial-gradient(1200px 1200px at 50% 60%, rgba(255,255,255,0.08), rgba(0,0,0,0) 70%)",
-                    filter: "blur(2px)",
-                  }}
-                />
-                {/* Layer 2: repeating conic rays blurred + rotating */}
-                <div
-                  className="pointer-events-none absolute inset-0"
-                  style={{
-                    background:
-                      "repeating-conic-gradient(from 0deg, rgba(var(--ray-color), var(--ray-alpha)) 0deg 8deg, rgba(0,0,0,0) 8deg 22deg)",
-                    filter: "blur(6px)",
-                    animation: "rb-rays-rotate var(--ray-rot-speed) linear infinite",
-                    transformOrigin: "50% 60%",
-                    opacity: 0.85,
-                  }}
-                />
-                {/* Layer 3: a secondary, slower counter-rotation for parallax */}
-                <div
-                  className="pointer-events-none absolute inset-0"
-                  style={{
-                    background:
-                      "repeating-conic-gradient(from 12deg, rgba(var(--ray-color), calc(var(--ray-alpha)*0.7)) 0deg 6deg, rgba(0,0,0,0) 6deg 20deg)",
-                    filter: "blur(10px)",
-                    animation: "rb-rays-rotate-rev calc(var(--ray-rot-speed)*1.6) linear infinite",
-                    transformOrigin: "50% 50%",
-                    opacity: 0.6,
-                  }}
-                />
-                <style jsx global>{`
-                  @keyframes rb-rays-rotate {
-                    to {
-                      transform: rotate(360deg);
-                    }
-                  }
-                  @keyframes rb-rays-rotate-rev {
-                    to {
-                      transform: rotate(-360deg);
-                    }
-                  }
-                `}</style>
-              </div>
-            );
-          }
+          cat > web/lib/utils.ts <<'EOF'
+          export function cn(...cls:(string|false|null|undefined)[]){return cls.filter(Boolean).join(' ');}
           EOF
 
-          # Write SplitTextHey.tsx
-          cat > web/components/text/SplitTextHey.tsx <<'EOF'
-          "use client";
-          import React, { useEffect } from "react";
-          import { gsap } from "gsap";
-
-          export function SplitTextHey() {
-            const text = "Hey!";
-            useEffect(() => {
-              const ctx = gsap.context(() => {
-                gsap.from(".split-letter", {
-                  y: 50,
-                  opacity: 0,
-                  stagger: 0.1,
-                  duration: 0.8,
-                  ease: "power3.out",
-                });
-              });
-              return () => ctx.revert();
-            }, []);
-            return (
-              <span className="inline-block text-6xl md:text-7xl font-bold text-white">
-                {text.split("").map((char, idx) => (
-                  <span key={idx} className="split-letter inline-block">
-                    {char}
-                  </span>
-                ))}
-              </span>
-            );
-          }
-          EOF
-
-          # Write IntroSequence.tsx
-          cat > web/components/experiences/IntroSequence.tsx <<'EOF'
-          "use client";
-          import React, { useEffect } from "react";
-          import { useRouter } from "next/navigation";
-          import { LightRaysBackground } from "@/components/backgrounds/LightRays";
-          import { SplitTextHey } from "@/components/text/SplitTextHey";
-
-          export default function IntroSequence() {
-            const router = useRouter();
-            useEffect(() => {
-              const timer = setTimeout(() => {
-                router.replace("/start");
-              }, 3000);
-              return () => clearTimeout(timer);
-            }, [router]);
-            return (
-              <div className="relative flex items-center justify-center min-h-screen overflow-hidden text-white bg-black">
-                <LightRaysBackground />
-                <SplitTextHey />
-              </div>
-            );
-          }
-          EOF
-
-          # Write TargetCursor.tsx
-          cat > web/components/cursor/TargetCursor.tsx <<'EOF'
-          "use client";
-          import React, { useEffect, useState } from "react";
-
-          export default function TargetCursor({ children }: { children: React.ReactNode }) {
-            const [pos, setPos] = useState({ x: 0, y: 0 });
-
-            useEffect(() => {
-              const move = (e: MouseEvent) => {
-                setPos({ x: e.clientX, y: e.clientY });
-              };
-              window.addEventListener("mousemove", move);
-              return () => window.removeEventListener("mousemove", move);
-            }, []);
-
-            return (
-              <>
-                <div
-                  aria-hidden
-                  className="fixed top-0 left-0 pointer-events-none z-50"
-                  style={{ transform: `translate(${pos.x - 12}px, ${pos.y - 12}px)` }}
-                >
-                  <div className="w-6 h-6 border-2 border-white rounded-full opacity-60"></div>
-                </div>
-                {children}
-              </>
-            );
-          }
-          EOF
-
-          # Write MagicBento.tsx
-          cat > web/components/bento/MagicBento.tsx <<'EOF'
-          "use client";
-          import React from "react";
-          import Link from "next/link";
-
-          export default function MagicBento() {
-            const tiles = [1, 2, 3, 4];
-            return (
-              <div className="grid grid-cols-2 gap-4 w-full max-w-md mx-auto">
-                {tiles.map((i) => (
-                  <Link
-                    key={i}
-                    href="/quiz/1"
-                    className="relative block aspect-square rounded-xl overflow-hidden bg-white/10 backdrop-blur-md hover:bg-white/20 transition"
-                  >
-                    <span className="absolute inset-0 flex items-center justify-center text-white text-2xl font-semibold">
-                      Start
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            );
-          }
-          EOF
-
-          # Write RevealOnView.tsx
-          cat > web/components/reveal/RevealOnView.tsx <<'EOF'
-          "use client";
-          import React, { useEffect, useRef, useState } from "react";
-
-          export default function RevealOnView({
-            children,
-            className = "",
-          }: {
-            children: React.ReactNode;
-            className?: string;
-          }) {
-            const ref = useRef<HTMLDivElement>(null);
-            const [visible, setVisible] = useState(false);
-
-            useEffect(() => {
-              const el = ref.current;
-              if (!el) return;
-              const observer = new IntersectionObserver(
-                (entries) => {
-                  if (entries[0].isIntersecting) {
-                    setVisible(true);
-                    observer.disconnect();
-                  }
-                },
-                { threshold: 0.2 }
-              );
-              observer.observe(el);
-              return () => observer.disconnect();
-            }, []);
-
-            return (
-              <div
-                ref={ref}
-                className={`${className} transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
-              >
-                {children}
-              </div>
-            );
-          }
-          EOF
-
-          # Write ScrollDownBackdrop.tsx
-          cat > web/components/reveal/ScrollDownBackdrop.tsx <<'EOF'
-          "use client";
-          import React, { useEffect, useState } from "react";
-
-          export default function ScrollDownBackdrop() {
-            const [hidden, setHidden] = useState(false);
-            useEffect(() => {
-              const handler = () => {
-                setHidden(window.scrollY > 50);
-              };
-              window.addEventListener("scroll", handler);
-              return () => window.removeEventListener("scroll", handler);
-            }, []);
-            return (
-              <div
-                aria-hidden
-                className={`fixed inset-x-0 bottom-4 flex justify-center pointer-events-none transition-opacity ${hidden ? "opacity-0" : "opacity-100"}`}
-              >
-                <span className="animate-bounce text-white text-2xl">↓</span>
-              </div>
-            );
-          }
-          EOF
-
-          # Write MagicAnswerBento.tsx
-          cat > web/components/questions/MagicAnswerBento.tsx <<'EOF'
-          "use client";
-          import React from "react";
-
-          interface Option {
-            value: string;
-            label: string;
-          }
-
-          interface Props {
-            options: Option[];
-            selected?: string | null;
-            onSelect: (value: string) => void;
-          }
-
-          export default function MagicAnswerBento({ options, selected, onSelect }: Props) {
-            return (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {options.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => onSelect(opt.value)}
-                    className={`p-6 rounded-xl border border-white/20 backdrop-blur-md text-left transition ${selected === opt.value ? "bg-white/20" : "bg-white/5 hover:bg-white/10"}`}
-                  >
-                    <span className="text-lg text-white">{opt.label}</span>
-                  </button>
-                ))}
-              </div>
-            );
-          }
-          EOF
-
-          # Write QuestionRevealPage.tsx
-          cat > web/components/questions/QuestionRevealPage.tsx <<'EOF'
-          "use client";
-          import React from "react";
-          import { useRouter } from "next/navigation";
-          import MagicAnswerBento from "@/components/questions/MagicAnswerBento";
-          import RevealOnView from "@/components/reveal/RevealOnView";
-          import ScrollDownBackdrop from "@/components/reveal/ScrollDownBackdrop";
-          import { useStore } from "@/lib/store";
-          import { questions } from "@/config/questions";
-
-          export default function QuestionRevealPage({ index }: { index: number }) {
-            const router = useRouter();
-            const q = questions[index - 1];
-            const answer = useStore((state) => state.answers[q.key] ?? null);
-            const setAnswer = useStore((state) => state.setAnswer);
-
-            function handleSelect(value: string) {
-              setAnswer(q.key, value);
-            }
-
-            function handleNext() {
-              if (!answer) return;
-              if (index < questions.length) {
-                router.push(`/quiz/${index + 1}`);
-              } else {
-                router.push("/quiz/result");
-              }
-            }
-
-            return (
-              <div className="relative min-h-screen flex flex-col items-center justify-center px-6 py-16 bg-black text-white space-y-12">
-                <RevealOnView className="max-w-2xl text-center space-y-8">
-                  <h1 className="text-3xl md:text-4xl font-semibold mb-6">{q.prompt}</h1>
-                  <MagicAnswerBento options={q.options} selected={answer} onSelect={handleSelect} />
-                </RevealOnView>
-                <RevealOnView>
-                  <button
-                    type="button"
-                    onClick={handleNext}
-                    disabled={!answer}
-                    className={`mt-8 px-6 py-3 rounded-md border border-white/30 transition ${answer ? "bg-white text-black hover:bg-gray-200" : "bg-gray-700 text-gray-500 cursor-not-allowed"}`}
-                  >
-                    {index < questions.length ? "Next" : "See Results"}
-                  </button>
-                </RevealOnView>
-                <ScrollDownBackdrop />
-              </div>
-            );
-          }
-          EOF
-
-          # Write ResultsBento.tsx
-          cat > web/components/results/ResultsBento.tsx <<'EOF'
-          "use client";
-          import React from "react";
-          import { useStore } from "@/lib/store";
-          import { computeScore } from "@/config/scoring";
-          import { buildSkoolUrl } from "@/lib/urls";
-          import Link from "next/link";
-
-          export default function ResultsBento() {
-            const answers = useStore((state) => state.answers);
-            const { score, tier, offer } = computeScore(answers);
-            const skoolUrl = buildSkoolUrl(answers, tier, offer);
-
-            return (
-              <div className="min-h-screen flex flex-col items-center justify-center px-4 py-16 bg-black text-white space-y-8">
-                <h1 className="text-4xl font-bold">Your Plan</h1>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl w-full">
-                  {Object.entries(answers).map(([key, value]) => (
-                    <div key={key} className="p-4 bg-white/10 rounded-lg backdrop-blur-md">
-                      <h3 className="text-sm uppercase tracking-wide text-gray-400">{key}</h3>
-                      <p className="text-lg break-words">{value}</p>
-                    </div>
-                  ))}
-                  <div className="p-4 bg-white/10 rounded-lg backdrop-blur-md">
-                    <h3 className="text-sm uppercase tracking-wide text-gray-400">Tier</h3>
-                    <p className="text-lg">{tier}</p>
-                  </div>
-                  <div className="p-4 bg-white/10 rounded-lg backdrop-blur-md">
-                    <h3 className="text-sm uppercase tracking-wide text-gray-400">Offer</h3>
-                    <p className="text-lg">{offer}</p>
-                  </div>
-                </div>
-                <Link
-                  href={skoolUrl}
-                  className="mt-8 px-6 py-3 rounded-md bg-white text-black hover:bg-gray-200 transition"
-                >
-                  Join Skool Community
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => alert('Feature coming soon!')}
-                  className="text-sm underline"
-                >
-                  Email my plan
-                </button>
-              </div>
-            );
-          }
-          EOF
-
-          # Write questions.ts
-          cat > web/config/questions.ts <<'EOF'
-          export interface QuestionOption {
-            value: string;
-            label: string;
-          }
-
-          export interface Question {
-            key: string;
-            prompt: string;
-            options: QuestionOption[];
-          }
-
-          export const questions: Question[] = [
-            {
-              key: "segment",
-              prompt: "Which segment best describes you?",
-              options: [
-                { value: "home-construction", label: "Home Construction" },
-                { value: "architecture", label: "Architecture" },
-                { value: "renovation", label: "Renovation" },
-                { value: "design", label: "Interior Design" },
-              ],
-            },
-            {
-              key: "team",
-              prompt: "What is your team size?",
-              options: [
-                { value: "1", label: "Just me" },
-                { value: "2-5", label: "2–5 people" },
-                { value: "6-10", label: "6–10 people" },
-                { value: "10+", label: "More than 10" },
-              ],
-            },
-            {
-              key: "ai",
-              prompt: "How do you feel about AI for your work?",
-              options: [
-                { value: "curious", label: "Curious about AI" },
-                { value: "excited", label: "Excited and ready to adopt" },
-                { value: "skeptical", label: "Skeptical, show me results" },
-                { value: "afraid", label: "Afraid it will replace me" },
-              ],
-            },
-            {
-              key: "pain",
-              prompt: "What is your biggest pain point right now?",
-              options: [
-                { value: "customer-leads", label: "Getting qualified leads" },
-                { value: "communication", label: "Communication & collaboration" },
-                { value: "manual-tasks", label: "Too many manual tasks" },
-                { value: "scaling", label: "Scaling my business" },
-              ],
-            },
-            {
-              key: "value",
-              prompt: "What do you value most for your business per month?",
-              options: [
-                { value: "less-than-5k", label: "Less than $5k" },
-                { value: "5k-20k", label: "$5k to $20k" },
-                { value: "20k-50k", label: "$20k to $50k" },
-                { value: "50k+", label: "Over $50k" },
-              ],
-            },
-          ];
-          EOF
-
-          # Write scoring.ts
-          cat > web/config/scoring.ts <<'EOF'
-          export type Tier = "Plinko Pocket" | "Playbook Pro" | "Playbook Plus";
-
-          export function computeScore(answers: Record<string, string>) {
-            let score = 0;
-            // simple heuristics
-            if (answers.segment === "home-construction") score += 2;
-            if (answers.segment === "architecture") score += 1;
-            if (answers.team === "10+") score += 3;
-            if (answers.team === "6-10") score += 2;
-            if (answers.ai === "excited") score += 3;
-            if (answers.ai === "curious") score += 2;
-            if (answers.pain === "scaling") score += 2;
-            if (answers.pain === "manual-tasks") score += 1;
-            if (answers.value === "50k+") score += 3;
-            if (answers.value === "20k-50k") score += 2;
-            let tier: Tier;
-            let offer: string;
-            if (score >= 10) {
-              tier = "Playbook Plus";
-              offer = "Playbook Plus";
-            } else if (score >= 6) {
-              tier = "Playbook Pro";
-              offer = "Playbook Pro";
-            } else {
-              tier = "Plinko Pocket";
-              offer = "Plinko Pocket";
-            }
-            return { score, tier, offer };
-          }
-          EOF
-
-          # Write store.ts
           cat > web/lib/store.ts <<'EOF'
-          "use client";
-          import { create } from "zustand";
-          import { persist } from "zustand/middleware";
+          'use client';
+          import { create } from 'zustand';
+          import { persist } from 'zustand/middleware';
 
-          interface QuizState {
-            answers: Record<string, string>;
-            setAnswer: (key: string, value: string) => void;
-            reset: () => void;
-          }
-
-          export const useStore = create<QuizState>()(
-            persist(
-              (set) => ({
-                answers: {},
-                setAnswer: (key, value) =>
-                  set((state) => ({
-                    answers: { ...state.answers, [key]: value },
-                  })),
-                reset: () => set({ answers: {} }),
-              }),
-              {
-                name: "quiz-answers",
-              }
-            )
-          );
+          export type Segment = 'real_estate'|'consulting'|'personal_brand'|'agency'|'finance'|'construction'|'other';
+          export type Answers = {
+            segment?: Segment;
+            teamSize?: 'solo'|'2-5'|'6-20'|'21+';
+            sentiment?: 'excited'|'curious'|'overwhelmed'|'skeptical'|'daily'|'starting';
+            tools?: string[];
+            pain?: string;
+            pain_other?: string;
+            valuePerMonth?: number;
+            urgency?: 'asap'|'30d'|'quarter'|'research';
+            email?: string;
+            name?: string;
+          };
+          type State = { a: Answers; set:<K extends keyof Answers>(k:K,v:Answers[K])=>void; reset:()=>void; };
+          export const useQuiz = create<State>()(persist(
+            (set,get)=>({ a:{}, set:(k,v)=>set({ a:{...get().a, [k]:v} }), reset:()=>set({ a:{} }) }),
+            { name:'ai-quiz-funnel-v3' }
+          ));
           EOF
 
-          # Write format.ts
           cat > web/lib/format.ts <<'EOF'
-          export function formatValue(value: string) {
-            return value
-              .replace(/less-than/, "Less than ")
-              .replace(/k\+/, "k+")
-              .replace(/-/, " to ")
-              .replace(/_/g, " ");
+          export function humanSegment(seg?: string){
+            const map:Record<string,string>={ real_estate:'Real Estate', consulting:'Consulting / Coaching', personal_brand:'Personal Brand / Creator', agency:'Creative / Marketing Agency', finance:'Private Equity / Finance', construction:'Home Construction / Contractor', other:'Other' };
+            return seg ? (map[seg] ?? seg) : 'Unknown';
           }
+          export function humanCurrency(n?: number){ return typeof n==='number' ? `$${n.toLocaleString()}` : '$0'; }
           EOF
 
-          # Write urls.ts
+          cat > web/lib/ids.ts <<'EOF'
+          import { customAlphabet } from 'nanoid';
+          const nano = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 8);
+          export function newLeadId(){ return `L-${nano()}`; }
+          export function newJoinCode(){ return nano(); }
+          EOF
+
           cat > web/lib/urls.ts <<'EOF'
-          export function buildSkoolUrl(answers: Record<string, string>, tier: string, offer: string) {
-            const base = process.env.NEXT_PUBLIC_SKOOL_URL || "";
-            const params = new URLSearchParams();
-            params.set("utm_source", "quiz");
-            params.set("utm_medium", "web");
-            params.set("utm_campaign", "skool_onboarding");
-            params.set("utm_content", `${answers.segment ?? ""}_${answers.pain ?? ""}`);
-            params.set("lead", answers.segment ?? "");
-            params.set("code", tier);
-            params.set("tier", tier);
-            params.set("offer", offer);
+          import type { Answers } from '@/lib/store';
+          import type { ScoreProfile } from '@/config/scoring';
+          export function buildSkoolLink(a: Answers, s: ScoreProfile, leadId: string, joinCode: string){
+            const base = process.env.NEXT_PUBLIC_SKOOL_URL || 'https://www.skool.com/citizen-developer-revenue-lab-4104';
+            const params = new URLSearchParams({
+              utm_source:'quiz', utm_medium:'web', utm_campaign:'skool_onboarding',
+              utm_content:`${a.segment ?? 'unknown'}_${a.pain ?? 'na'}`,
+              lead:leadId, code:joinCode, tier:s.tier, offer:s.offer
+            });
             return `${base}?${params.toString()}`;
           }
           EOF
 
-          # Write ids.ts
-          cat > web/lib/ids.ts <<'EOF'
-          export const APP_ID = "quiz-app";
+          cat > web/config/scoring.ts <<'EOF'
+          import type { Answers } from '@/lib/store';
+          export type ScoreProfile = {
+            identity_maturity:number; integration_score:number; pain_intensity:number; budget_score:number; urgency_score:number;
+            tier:'low'|'mid'|'high'; offer:'Plinko Pocket'|'Playbook Pro'|'Playbook Plus';
+          };
+          export function scoreProfile(a: Answers): ScoreProfile {
+            const identity_maturity = a.teamSize==='solo'?0 : a.teamSize==='2-5'?1 : (a.teamSize==='6-20'||a.teamSize==='21+')?2 : 0;
+            const integration_score = (a.tools?.length??0)>=3 || a.sentiment==='daily' ? 3 : (a.tools?.length??0)>=1 ? 2 : 1;
+            const pain_intensity = 2;
+            const budget = a.valuePerMonth ?? 0;
+            const budget_score = budget>=5000?3 : budget>=2000?2 : budget>=500?1 : 0;
+            const urgency_score = (a.urgency==='asap'||a.urgency==='30d')?2 : a.urgency==='quarter'?1 : 0;
+            const total = identity_maturity+integration_score+pain_intensity+budget_score+urgency_score;
+            const tier = total<=4?'low' : total<=7?'mid' : 'high';
+            const offer = tier==='low'?'Plinko Pocket' : tier==='mid'?'Playbook Pro' : 'Playbook Plus';
+            return { identity_maturity, integration_score, pain_intensity, budget_score, urgency_score, tier, offer };
+          }
           EOF
 
-          # Write app/page.tsx
+          cat > web/config/questions.ts <<'EOF'
+          export const SEGMENTS = [
+            { key:'real_estate', label:'Real Estate' },
+            { key:'consulting', label:'Consulting / Coaching' },
+            { key:'personal_brand', label:'Personal Brand / Creator' },
+            { key:'agency', label:'Creative / Marketing Agency' },
+            { key:'finance', label:'Private Equity / Finance' },
+            { key:'construction', label:'Home Construction / Contractor' },
+            { key:'other', label:'Other' }
+          ] as const;
+
+          export const PAIN_OPTIONS: Record<string, {key:string,label:string}[]> = {
+            real_estate: [
+              { key:'lead_followup', label:'Responding fast to new leads' },
+              { key:'listing_ops', label:'Listing paperwork and coordination' },
+              { key:'crm_double', label:'Double data entry between tools' },
+              { key:'showing_sched', label:'Showings scheduling & reminders' },
+              { key:'content', label:'Consistent content + GMB posts' },
+            ],
+            consulting: [
+              { key:'inbound_triage', label:'Sorting inbound requests & fit' },
+              { key:'proposal', label:'Proposals & scope take too long' },
+              { key:'billing', label:'Invoicing & chasing payments' },
+              { key:'kb', label:'No central knowledge base' },
+              { key:'content', label:'Content cadence is inconsistent' },
+            ],
+            personal_brand: [
+              { key:'ideas_to_posts', label:'Turning ideas into posts' },
+              { key:'newsletter', label:'Newsletter cadence' },
+              { key:'ops', label:'Sponsor & collab ops' },
+              { key:'offers', label:'Packaging offers' },
+            ],
+            agency: [
+              { key:'client_onboarding', label:'Client onboarding repeat work' },
+              { key:'reporting', label:'Report creation is manual' },
+              { key:'handoffs', label:'Handoffs across tools' },
+              { key:'scheduling', label:'Scheduling & follow-ups' },
+            ],
+            finance: [
+              { key:'dealflow', label:'Triage inbound deal flow' },
+              { key:'dd', label:'Data room & DD tasking' },
+              { key:'memos', label:'IC memos & updates' },
+              { key:'ops', label:'Portfolio ops reporting' },
+            ],
+            construction: [
+              { key:'lead_response', label:'Contacting new leads from ads' },
+              { key:'estimates', label:'Manual estimates & take-offs' },
+              { key:'data_scatter', label:'Project data scattered across tools' },
+              { key:'proposals', label:'Proposal creation slow & manual' },
+              { key:'invoicing', label:'Invoicing progress payments & chasing overdue' },
+              { key:'gmb', label:'Social / Google My Business posting' },
+              { key:'vendor_po_mismatch', label:'Vendor invoice not matching the PO' }
+            ],
+            other: [
+              { key:'repetitive', label:'Repetitive admin work' },
+              { key:'handoffs', label:'Handoffs across tools' },
+              { key:'reporting', label:'Reporting compilation' },
+            ]
+          };
+
+          export const SEGMENT_PROMPTS: Record<string,string> = {
+            construction: "Which day-to-day operational headache slows your construction business the most?",
+            real_estate: "What’s the bottleneck that costs you the most momentum each week?",
+            consulting: "Which part of your client flow do you most want to streamline?",
+            personal_brand: "What would make your creative week feel lighter?",
+            agency: "What’s the one step in delivery that always drags?",
+            finance: "Which part of your deal flow could be 10x smoother?",
+            other: "What’s the task you’d love to never do again?"
+          };
+          EOF
+
+          cat > web/components/backgrounds/LightRays.tsx <<'EOF'
+          'use client';
+          import React,{useEffect,useRef} from 'react';
+          export function LightRaysBackground({speedMs=16000,intensity=0.10,color='255,255,255'}:{speedMs?:number;intensity?:number;color?:string}){
+            const ref=useRef<HTMLDivElement>(null);
+            useEffect(()=>{ if(!ref.current)return; ref.current.style.setProperty('--ray-rot-speed',`${speedMs}ms`); ref.current.style.setProperty('--ray-alpha',`${intensity}`); ref.current.style.setProperty('--ray-color',color); },[speedMs,intensity,color]);
+            return (<div aria-hidden ref={ref} className="fixed inset-0 -z-10 overflow-hidden bg-black">
+              <div className="absolute inset-0" style={{background:'radial-gradient(1200px 1200px at 50% 60%, rgba(255,255,255,0.08), rgba(0,0,0,0) 70%)', filter:'blur(2px)'}} />
+              <div className="absolute inset-0" style={{background:'repeating-conic-gradient(from 0deg, rgba(var(--ray-color), var(--ray-alpha)) 0deg 8deg, rgba(0,0,0,0) 8deg 22deg)', filter:'blur(6px)', animation:'rb-rays-rotate var(--ray-rot-speed) linear infinite', transformOrigin:'50% 60%', opacity:0.85}} />
+              <div className="absolute inset-0" style={{background:'repeating-conic-gradient(from 12deg, rgba(var(--ray-color), calc(var(--ray-alpha)*0.7)) 0deg 6deg, rgba(0,0,0,0) 6deg 20deg)', filter:'blur(10px)', animation:'rb-rays-rotate-rev calc(var(--ray-rot-speed)*1.6) linear infinite', transformOrigin:'50% 50%', opacity:0.6}} />
+              <style jsx global>{`@keyframes rb-rays-rotate{to{transform:rotate(360deg);}} @keyframes rb-rays-rotate-rev{to{transform:rotate(-360deg);}}`}</style>
+            </div>);
+          }
+          EOF
+
+          cat > web/components/text/SplitTextHey.tsx <<'EOF'
+          'use client';
+          import React,{forwardRef,useEffect,useImperativeHandle,useMemo,useRef} from 'react';
+          import { gsap } from 'gsap';
+          export type SplitTextControls={playIn:()=>void; reverseOut:(onComplete?:()=>void)=>void;};
+          export const SplitTextHey=forwardRef<SplitTextControls,{text?:string;fontClassName?:string;stagger?:number;yFrom?:number;duration?:number}>(
+          ({text='Hey!',fontClassName='text-5xl md:text-7xl font-semibold',stagger=0.035,yFrom=24,duration=0.6},ref)=>{
+            const containerRef=useRef<HTMLDivElement>(null);
+            const charsRef=useRef<HTMLSpanElement[]>([]);
+            const tlRef=useRef<gsap.core.Timeline|null>(null);
+            const chars=useMemo(()=>Array.from(text),[text]);
+            useImperativeHandle(ref,()=>({playIn:()=>{ if(!containerRef.current)return; if(tlRef.current)tlRef.current.kill(); const tl=gsap.timeline({paused:true}); tl.set(containerRef.current,{opacity:1}); tl.from(charsRef.current,{opacity:0,y:yFrom,ease:'power3.out',duration,stagger}); tlRef.current=tl; tl.play(0); }, reverseOut:(onComplete)=>{ if(tlRef.current){ tlRef.current.eventCallback('onReverseComplete', onComplete || null); tlRef.current.reverse(); } else { if(onComplete) onComplete(); } }}));
+            useEffect(()=>{ if(containerRef.current) (gsap as any).set(containerRef.current,{opacity:0}); },[]);
+            return (<div className="pointer-events-none select-none" aria-hidden><div ref={containerRef} className={`${fontClassName} tracking-tight text-center`} style={{willChange:'opacity, transform'}}>{chars.map((c,i)=>(<span key={i} ref={(el)=>{ if(el) charsRef.current[i]=el; }} className="inline-block" style={{whiteSpace:'pre'}}>{c}</span>))}</div></div>);
+          });
+          SplitTextHey.displayName='SplitTextHey';
+          EOF
+
+          cat > web/components/experiences/IntroSequence.tsx <<'EOF'
+          'use client';
+          import React,{useEffect,useRef,useState} from 'react';
+          import { LightRaysBackground } from '@/components/backgrounds/LightRays';
+          import { SplitTextHey, type SplitTextControls } from '@/components/text/SplitTextHey';
+          import { useRouter } from 'next/navigation';
+          type Phase='BG'|'HEY_IN'|'HEY_OUT'|'DONE';
+          export function IntroSequence({nextHref='/start', bgOnlyMs=1200, heyHoldMs=800, heyDurationMs=1600}:{nextHref?:string;bgOnlyMs?:number;heyHoldMs?:number;heyDurationMs?:number}){
+            const [phase,setPhase]=useState<Phase>('BG');
+            const heyRef=useRef<SplitTextControls>(null);
+            const router=useRouter();
+            useEffect(()=>{ const t=setTimeout(()=>setPhase('HEY_IN'), bgOnlyMs); return ()=>clearTimeout(t); },[bgOnlyMs]);
+            useEffect(()=>{
+              if(phase==='HEY_IN'){ heyRef.current?.playIn(); const t=setTimeout(()=>setPhase('HEY_OUT'), heyDurationMs+heyHoldMs); return ()=>clearTimeout(t); }
+              if(phase==='HEY_OUT'){ heyRef.current?.reverseOut(()=>setPhase('DONE')); }
+              if(phase==='DONE'){ router.push(nextHref); }
+            },[phase,heyHoldMs,heyDurationMs,nextHref,router]);
+            return (<main className="relative min-h-dvh flex items-center justify-center bg-black text-white">
+              <LightRaysBackground />
+              {(phase==='HEY_IN'||phase==='HEY_OUT') && (<div className="absolute inset-0 grid place-items-center"><SplitTextHey text="Hey!" ref={heyRef} /></div>)}
+            </main>);
+          }
+          EOF
+
+          cat > web/components/cursor/TargetCursor.tsx <<'EOF'
+          'use client';
+          import React,{useEffect,useRef} from 'react';
+          export function TargetCursor({size=28,idleOpacity=0.35,hoverScale=1.6}:{size?:number;idleOpacity?:number;hoverScale?:number}){
+            const dot=useRef<HTMLDivElement>(null); const pos=useRef({x:0,y:0}); const target=useRef({x:0,y:0}); const raf=useRef<number|null>(null); const hover=useRef(false);
+            useEffect(()=>{
+              const el=dot.current!;
+              const onMove=(e:MouseEvent)=>{ target.current.x=e.clientX; target.current.y=e.clientY; if(!raf.current) loop(); };
+              const onOver=(e:MouseEvent)=>{ const t=e.target as HTMLElement; hover.current=!!t.closest('a,button,[role="button"],.bento-tile'); };
+              window.addEventListener('mousemove', onMove, {passive:true});
+              window.addEventListener('mouseover', onOver, {passive:true});
+              return ()=>{ window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseover', onOver); if(raf.current) cancelAnimationFrame(raf.current); };
+              function loop(){ pos.current.x += (target.current.x - pos.current.x)*0.18; pos.current.y += (target.current.y - pos.current.y)*0.18; el.style.transform=`translate(${pos.current.x - size/2}px, ${pos.current.y - size/2}px) scale(${hover.current?hoverScale:1})`; el.style.opacity = hover.current ? '0.55' : String(idleOpacity); raf.current=requestAnimationFrame(loop); }
+            },[size,idleOpacity,hoverScale]);
+            return (<div aria-hidden className="fixed left-0 top-0 pointer-events-none z-50 hidden sm:block" style={{width:size,height:size,borderRadius:'9999px',border:'1.5px solid rgba(255,255,255,.65)',boxShadow:'0 0 20px rgba(255,255,255,.15)',transition:'opacity .15s ease',mixBlendMode:'difference'}} ref={dot} />);
+          }
+          EOF
+
+          cat > web/components/bento/MagicBento.tsx <<'EOF'
+          'use client';
+          import React,{useState} from 'react';
+          import { cn } from '@/lib/utils';
+          type Tile={key:string; title:string; subtitle?:string; icon?:React.ReactNode; className?:string};
+          export function MagicBento({tiles,onContinue,revealDelayMs=600}:{tiles:Tile[];onContinue:(key:string)=>void;revealDelayMs?:number}){
+            const [revealed,setRevealed]=useState<string|null>(null);
+            return (<div className="relative mx-auto max-w-5xl px-6 py-10">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 auto-rows-[160px]">
+                {tiles.map(t=>{ const isClicked=revealed===t.key; return (
+                  <button key={t.key}
+                    className={cn('bento-tile group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-5 text-left backdrop-blur-sm transition transform hover:border-white/20 hover:bg-white/[.07] focus:outline-none focus-visible:ring-2 focus-visible:ring-white', t.className)}
+                    onClick={()=>{ if(revealed) return; setRevealed(t.key); setTimeout(()=>onContinue(t.key), revealDelayMs); }}
+                  >
+                    <div className={cn('absolute inset-0 transition', isClicked?'backdrop-blur-0 grayscale-0 opacity-0':'backdrop-blur-[2px] grayscale opacity-100')} aria-hidden />
+                    <div className={cn('relative z-10 flex h-full flex-col justify-between text-white transition-transform duration-500', isClicked?'scale-[1.02]':'scale-100')}>
+                      <div className="flex items-center gap-3">{t.icon && <span className="text-xl opacity-80">{t.icon}</span>}<h3 className="text-lg font-semibold">{t.title}</h3></div>
+                      {t.subtitle && <p className="text-sm text-white/70">{t.subtitle}</p>}
+                      <div className="pointer-events-none absolute -inset-10 rotate-6 bg-gradient-to-r from-transparent via-white/10 to-transparent blur-2xl" />
+                    </div>
+                  </button>
+                );})}
+              </div>
+            </div>);
+          }
+          EOF
+
+          cat > web/components/reveal/RevealOnView.tsx <<'EOF'
+          'use client';
+          import React,{useEffect,useRef,useState} from 'react';
+          export function RevealOnView({children,once=true,threshold=0.15,className='',from='translate-y-4 opacity-0',to='translate-y-0 opacity-100',duration='duration-700'}:React.PropsWithChildren<{once?:boolean;threshold?:number;className?:string;from?:string;to?:string;duration?:string}>){
+            const ref=useRef<HTMLDivElement>(null); const [visible,setVisible]=useState(false);
+            useEffect(()=>{ const el=ref.current; if(!el) return; const io=new IntersectionObserver((entries)=>{entries.forEach(e=>{ if(e.isIntersecting){ setVisible(true); if(once) io.disconnect(); } else if(!once){ setVisible(false);} });},{threshold}); io.observe(el); return ()=>io.disconnect(); },[once,threshold]);
+            return (<div ref={ref} className={['transition-all ease-out will-change-transform',duration,visible?to:from,className].join(' ')}>{children}</div>);
+          }
+          EOF
+
+          cat > web/components/reveal/ScrollDownBackdrop.tsx <<'EOF'
+          import React from 'react';
+          export function ScrollDownBackdrop(){
+            return (<div aria-hidden className="pointer-events-none fixed inset-0 -z-10 grid place-items-center">
+              <div className="select-none text-5xl md:text-8xl font-black tracking-tighter text-white/5">scroll down</div>
+            </div>);
+          }
+          EOF
+
+          cat > web/components/questions/MagicAnswerBento.tsx <<'EOF'
+          'use client';
+          import React,{useState} from 'react';
+          import { cn } from '@/lib/utils';
+          export function MagicAnswerBento({answers,onPick,revealDelayMs=400}:{answers:{key:string;label:string;color?:string}[];onPick:(key:string)=>void;revealDelayMs?:number}){
+            const [clicked,setClicked]=useState<string|null>(null); const base=['bg-emerald-600','bg-cyan-600','bg-indigo-600','bg-fuchsia-600','bg-rose-600','bg-amber-600','bg-lime-600','bg-sky-600'];
+            return (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 auto-rows-[140px]">
+              {answers.map((a,i)=>{ const isClicked=clicked===a.key; const color=a.color??base[i%base.length]; return (
+                <button key={a.key} className={cn('group bento-tile relative overflow-hidden rounded-2xl border border-white/10 p-5 text-left transition will-change-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-white', color)}
+                  onClick={()=>{ if(clicked) return; setClicked(a.key); setTimeout(()=>onPick(a.key), revealDelayMs); }}>
+                  <div className={cn('absolute inset-0 backdrop-blur-[2px] grayscale transition-opacity', isClicked?'opacity-0':'opacity-100')} aria-hidden />
+                  <div className="relative z-10 flex h-full w-full items-center justify-center text-center text-lg font-semibold text-white drop-shadow"><span>{a.label}</span></div>
+                  <div className="pointer-events-none absolute -inset-16 rotate-6 bg-white/10 blur-2xl" />
+                </button>
+              );})}
+            </div>);
+          }
+          EOF
+
+          cat > web/components/questions/QuestionRevealPage.tsx <<'EOF'
+          'use client';
+          import React from 'react';
+          import { ScrollDownBackdrop } from '@/components/reveal/ScrollDownBackdrop';
+          import { RevealOnView } from '@/components/reveal/RevealOnView';
+          import { MagicAnswerBento } from '@/components/questions/MagicAnswerBento';
+          export type AnswerTile={key:string;label:string;color?:string};
+          export function QuestionRevealPage({title,note,answers,onPick}:{title:string;note?:string;answers:AnswerTile[];onPick:(key:string)=>void}){
+            return (<main className="relative min-h-dvh bg-black text-white">
+              <ScrollDownBackdrop />
+              <section className="mx-auto max-w-3xl px-6 pt-24 pb-16">
+                <RevealOnView><h1 className="text-3xl md:text-4xl font-semibold leading-tight">{title}</h1>{note && <p className="text-white/70 mt-2">{note}</p>}</RevealOnView>
+              </section>
+              <section className="mx-auto max-w-5xl px-6 pb-24">
+                <RevealOnView from="translate-y-6 opacity-0" to="translate-y-0 opacity-100" duration="duration-700">
+                  <MagicAnswerBento answers={answers} onPick={onPick} />
+                </RevealOnView>
+              </section>
+            </main>);
+          }
+          EOF
+
           cat > web/app/page.tsx <<'EOF'
-          import IntroSequence from "@/components/experiences/IntroSequence";
-          export default function Page() {
-            return <IntroSequence />;
-          }
+          import { IntroSequence } from '@/components/experiences/IntroSequence';
+          export default function Home(){ return <IntroSequence nextHref='/start' /> }
           EOF
 
-          # Write app/start/page.tsx
           cat > web/app/start/page.tsx <<'EOF'
-          import dynamic from "next/dynamic";
-
-          const TargetCursor = dynamic(() => import("@/components/cursor/TargetCursor"), { ssr: false });
-          const MagicBento = dynamic(() => import("@/components/bento/MagicBento"), { ssr: false });
-
-          export default function StartPage() {
-            return (
-              <TargetCursor>
-                <div className="relative flex items-center justify-center min-h-screen bg-black text-white">
-                  <MagicBento />
-                </div>
-              </TargetCursor>
-            );
+          'use client';
+          import React from 'react';
+          import { useRouter } from 'next/navigation';
+          import { LightRaysBackground } from '@/components/backgrounds/LightRays';
+          import { TargetCursor } from '@/components/cursor/TargetCursor';
+          import { MagicBento } from '@/components/bento/MagicBento';
+          export default function StartPage(){
+            const router=useRouter();
+            return (<main className="relative min-h-dvh bg-black text-white">
+              <LightRaysBackground /><TargetCursor />
+              <div className="mx-auto max-w-3xl px-6 pt-16 text-center">
+                <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">Choose your portal</h1>
+                <p className="text-white/70 mt-2">Any tile will take you into the journey.</p>
+              </div>
+              <MagicBento tiles={[
+                {key:'identity',title:'Identity',subtitle:'Who you are + goals',className:'md:col-span-2'},
+                {key:'architecture',title:'Architecture',subtitle:'Your tools + systems',className:'md:row-span-2'},
+                {key:'experience',title:'Experience',subtitle:'Pain points + outcomes'},
+                {key:'get-started',title:'Get Started',subtitle:'Jump right in',className:'md:col-span-2'}
+              ]} onContinue={()=>router.push('/quiz/1')} />
+            </main>);
           }
           EOF
 
-          # Write quiz pages 1-5
           cat > web/app/quiz/1/page.tsx <<'EOF'
-          import dynamic from "next/dynamic";
-          const QuestionRevealPage = dynamic(() => import("@/components/questions/QuestionRevealPage"), { ssr: false });
-          export default function Quiz1() {
-            return <QuestionRevealPage index={1} />;
+          'use client';
+          import React from 'react';
+          import { useRouter } from 'next/navigation';
+          import { useQuiz } from '@/lib/store';
+          import { QuestionRevealPage } from '@/components/questions/QuestionRevealPage';
+          export default function Step1(){
+            const router=useRouter(); const { set } = useQuiz();
+            return (<QuestionRevealPage title="Hey — quick intro. What kind of business are you building?" note="Pick the closest match. I’ll tailor everything after this to you."
+              answers={[
+                {key:'real_estate',label:'Real Estate'},
+                {key:'consulting',label:'Consulting / Coaching'},
+                {key:'personal_brand',label:'Personal Brand / Creator'},
+                {key:'agency',label:'Creative / Marketing Agency'},
+                {key:'finance',label:'Private Equity / Finance'},
+                {key:'construction',label:'Home Construction / Contractor'},
+                {key:'other',label:'Other'},
+              ]} onPick={(k)=>{ set('segment', k as any); router.push('/quiz/2'); }} />);
           }
           EOF
 
           cat > web/app/quiz/2/page.tsx <<'EOF'
-          import dynamic from "next/dynamic";
-          const QuestionRevealPage = dynamic(() => import("@/components/questions/QuestionRevealPage"), { ssr: false });
-          export default function Quiz2() {
-            return <QuestionRevealPage index={2} />;
+          'use client';
+          import React from 'react';
+          import { useRouter } from 'next/navigation';
+          import { useQuiz } from '@/lib/store';
+          import { QuestionRevealPage } from '@/components/questions/QuestionRevealPage';
+          export default function Step2(){
+            const router=useRouter(); const { set } = useQuiz();
+            return (<QuestionRevealPage title="Beautiful. How big is your team right now?" note="This helps me right-size recommendations so they actually fit your world."
+              answers={[
+                {key:'solo',label:'Just me'},
+                {key:'2-5',label:'2–5'},
+                {key:'6-20',label:'6–20'},
+                {key:'21+',label:'21+'},
+              ]} onPick={(k)=>{ set('teamSize', k as any); router.push('/quiz/3'); }} />);
           }
           EOF
 
           cat > web/app/quiz/3/page.tsx <<'EOF'
-          import dynamic from "next/dynamic";
-          const QuestionRevealPage = dynamic(() => import("@/components/questions/QuestionRevealPage"), { ssr: false });
-          export default function Quiz3() {
-            return <QuestionRevealPage index={3} />;
+          'use client';
+          import React from 'react';
+          import { useRouter } from 'next/navigation';
+          import { useQuiz } from '@/lib/store';
+          import { QuestionRevealPage } from '@/components/questions/QuestionRevealPage';
+          export default function Step3(){
+            const router=useRouter(); const { set } = useQuiz();
+            return (<QuestionRevealPage title="How are you feeling about AI right now?" note="No wrong answers. I just want to meet you where you are."
+              answers={[
+                {key:'excited',label:'Excited'},
+                {key:'curious',label:'Curious'},
+                {key:'overwhelmed',label:'Overwhelmed'},
+                {key:'skeptical',label:'Skeptical'},
+                {key:'daily',label:'Using it daily'},
+                {key:'starting',label:'Just getting started'},
+              ]} onPick={(k)=>{ set('sentiment', k as any); router.push('/quiz/4'); }} />);
           }
           EOF
 
           cat > web/app/quiz/4/page.tsx <<'EOF'
-          import dynamic from "next/dynamic";
-          const QuestionRevealPage = dynamic(() => import("@/components/questions/QuestionRevealPage"), { ssr: false });
-          export default function Quiz4() {
-            return <QuestionRevealPage index={4} />;
+          'use client';
+          import React from 'react';
+          import { useRouter } from 'next/navigation';
+          import { useQuiz } from '@/lib/store';
+          import { QuestionRevealPage } from '@/components/questions/QuestionRevealPage';
+          import { PAIN_OPTIONS, SEGMENT_PROMPTS } from '@/config/questions';
+          export default function Step4(){
+            const router=useRouter(); const { a, set } = useQuiz();
+            const seg = a.segment ?? 'other';
+            const options = (PAIN_OPTIONS as any)[seg] ?? PAIN_OPTIONS.other;
+            const prompt = SEGMENT_PROMPTS[seg] ?? SEGMENT_PROMPTS.other;
+            return (<QuestionRevealPage title={prompt} note="Pick the one that stings most. We’ll solve for that first."
+              answers={options.map(o=>({key:o.key,label:o.label}))}
+              onPick={(k)=>{ set('pain', k as any); router.push('/quiz/5'); }} />);
           }
           EOF
 
           cat > web/app/quiz/5/page.tsx <<'EOF'
-          import dynamic from "next/dynamic";
-          const QuestionRevealPage = dynamic(() => import("@/components/questions/QuestionRevealPage"), { ssr: false });
-          export default function Quiz5() {
-            return <QuestionRevealPage index={5} />;
+          'use client';
+          import React,{useState} from 'react';
+          import { useRouter } from 'next/navigation';
+          import { useQuiz } from '@/lib/store';
+          import { QuestionRevealPage } from '@/components/questions/QuestionRevealPage';
+          export default function Step5(){
+            const router=useRouter(); const { set } = useQuiz();
+            const [stage,setStage]=useState<'value'|'urgency'>('value');
+            if(stage==='value') return (<QuestionRevealPage title="If we fixed that one thing, about how much would it be worth each month?"
+              note="A rough guess is perfect—this just helps me right-size."
+              answers={[
+                {key:'250',label:'$0–$499'},
+                {key:'1200',label:'$500–$1.9k'},
+                {key:'3000',label:'$2k–$4.9k'},
+                {key:'6000',label:'$5k+'},
+              ]} onPick={(k)=>{ set('valuePerMonth', Number(k)); setStage('urgency'); }} />);
+            return (<QuestionRevealPage title="How soon would you act if the right solution showed up?"
+              answers={[
+                {key:'asap',label:'ASAP'},
+                {key:'30d',label:'Within 30 days'},
+                {key:'quarter',label:'This quarter'},
+                {key:'research',label:'Just researching'},
+              ]} onPick={(k)=>{ set('urgency', k as any); router.push('/quiz/result'); }} />);
           }
           EOF
 
-          # Write result page
           cat > web/app/quiz/result/page.tsx <<'EOF'
-          import dynamic from "next/dynamic";
-          const ResultsBento = dynamic(() => import("@/components/results/ResultsBento"), { ssr: false });
-          export default function ResultPage() {
-            return <ResultsBento />;
+          'use client';
+          import React from 'react';
+          import { useQuiz } from '@/lib/store';
+          import { scoreProfile } from '@/config/scoring';
+          import { humanCurrency, humanSegment } from '@/lib/format';
+          import { ResultsBento } from '@/components/results/ResultsBento';
+          import { newJoinCode, newLeadId } from '@/lib/ids';
+          import { buildSkoolLink } from '@/lib/urls';
+
+          export default function Result(){
+            const { a } = useQuiz();
+            const score = scoreProfile(a);
+            const leadId = newLeadId();
+            const joinCode = newJoinCode();
+            const skoolUrl = buildSkoolLink(a, score, leadId, joinCode);
+            const emailWebhook = process.env.NEXT_PUBLIC_EMAIL_WEBHOOK || 'https://example.com/collect';
+            const emailLink = `${emailWebhook}?lead=${encodeURIComponent(leadId)}&segment=${encodeURIComponent(a.segment||'unknown')}&pain=${encodeURIComponent(a.pain||'na')}&tier=${score.tier}&offer=${encodeURIComponent(score.offer)}`;
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            const invite1 = `${appUrl}/?ref=${encodeURIComponent(leadId)}-1`;
+            const invite2 = `${appUrl}/?ref=${encodeURIComponent(leadId)}-2`;
+            const invite3 = `${appUrl}/?ref=${encodeURIComponent(leadId)}-3`;
+
+            return (
+              <main className="min-h-dvh bg-black text-white">
+                <section className="mx-auto max-w-3xl px-6 pt-20 pb-10">
+                  <h1 className="text-3xl md:text-4xl font-semibold">Your personalized plan</h1>
+                  <p className="text-white/70 mt-2">Here’s a quick snapshot of what you told me and where I recommend we start.</p>
+                </section>
+
+                <section className="mx-auto max-w-5xl px-6 pb-12">
+                  <ResultsBento items={[
+                    { label:'Segment', value: humanSegment(a.segment) },
+                    { label:'Team size', value: a.teamSize || '—' },
+                    { label:'AI feel', value: a.sentiment || '—' },
+                    { label:'Top pain', value: a.pain || '—' },
+                    { label:'Value / mo', value: humanCurrency(a.valuePerMonth) },
+                    { label:'Urgency', value: a.urgency || '—' },
+                    { label:'Tier', value: score.tier },
+                    { label:'Offer', value: score.offer },
+                  ]} />
+                </section>
+
+                <section className="mx-auto max-w-3xl px-6 pb-20 space-y-4">
+                  <a className="inline-flex items-center gap-2 rounded-xl bg-white text-black px-5 py-3 font-semibold hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white" href={skoolUrl} target="_blank" rel="noreferrer">Join the Skool group</a>
+                  <div><a className="text-white/80 underline" href={emailLink} target="_blank" rel="noreferrer">Email this plan to me</a></div>
+                  <div className="text-white/60 text-sm">Invite 3 friends: 
+                    <button className="ml-2 underline" onClick={()=>navigator.clipboard.writeText(invite1)}>Copy link 1</button> • 
+                    <button className="ml-2 underline" onClick={()=>navigator.clipboard.writeText(invite2)}>Copy link 2</button> • 
+                    <button className="ml-2 underline" onClick={()=>navigator.clipboard.writeText(invite3)}>Copy link 3</button>
+                  </div>
+                </section>
+              </main>
+            );
           }
           EOF
 
-          # Stage and commit
-          git add .
-          if ! git diff --cached --quiet; then
-            git commit -m "Scaffold quiz app (intro, start, quiz 1–5, results)"
-            git push origin HEAD:feat/next-quiz-web
-          else
-            echo "No changes to commit"
-          fi
+          node - <<'NODE'
+          const fs = require('fs');
+          const p = 'web/package.json';
+          if (fs.existsSync(p)) {
+            const pkg = JSON.parse(fs.readFileSync(p,'utf8'));
+            pkg.dependencies ||= {};
+            const want = { zustand: "^4.5.2", nanoid: "^4.0.2", gsap: "^3.12.5" };
+            for (const [k,v] of Object.entries(want)) if (!pkg.dependencies[k]) pkg.dependencies[k]=v;
+            fs.writeFileSync(p, JSON.stringify(pkg, null, 2));
+          }
+          NODE
+
+          rm -rf web/components/backgrounds/components || true
+
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add web
+          git commit -m "Scaffold quiz app (intro, start, quiz 1-5, results)" || echo "No changes to commit"
+          git push origin HEAD:${{ github.event.inputs.branch }}
+
+      - name: Done
+        run: echo "Scaffold pushed. You can deploy now."
