@@ -1,0 +1,664 @@
+name: Quiz Scaffold
+
+on:
+  workflow_dispatch:
+
+jobs:
+  scaffold:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          ref: feat/next-quiz-web
+
+      - name: Setup git user
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+      - name: Scaffold files
+        shell: bash
+        run: |
+          set -eux
+          # Remove mis-nested LightRays
+          rm -rf web/components/backgrounds/components || true
+          # Create directories
+          mkdir -p web/components/backgrounds web/components/text web/components/experiences web/components/cursor web/components/bento web/components/reveal web/components/questions web/components/results
+          mkdir -p web/app/start web/app/quiz/1 web/app/quiz/2 web/app/quiz/3 web/app/quiz/4 web/app/quiz/5 web/app/quiz/result
+          mkdir -p web/config web/lib .github/workflows
+
+          # Write LightRays.tsx
+          cat > web/components/backgrounds/LightRays.tsx <<'EOF'
+          // LightRays.tsx
+          "use client";
+          import React, { useEffect, useRef } from "react";
+
+          export function LightRaysBackground({
+            speedMs = 16000,
+            intensity = 0.10,
+            color = "255,255,255",
+          }: { speedMs?: number; intensity?: number; color?: string }) {
+            const ref = useRef<HTMLDivElement>(null);
+            useEffect(() => {
+              if (!ref.current) return;
+              ref.current.style.setProperty("--ray-rot-speed", `${speedMs}ms`);
+              ref.current.style.setProperty("--ray-alpha", `${intensity}`);
+              ref.current.style.setProperty("--ray-color", color);
+            }, [speedMs, intensity, color]);
+            return (
+              <div aria-hidden ref={ref} className="fixed inset-0 -z-10 overflow-hidden bg-black">
+                {/* Layer 1: soft radial glow */}
+                <div
+                  className="pointer-events-none absolute inset-0"
+                  style={{
+                    background:
+                      "radial-gradient(1200px 1200px at 50% 60%, rgba(255,255,255,0.08), rgba(0,0,0,0) 70%)",
+                    filter: "blur(2px)",
+                  }}
+                />
+                {/* Layer 2: repeating conic rays blurred + rotating */}
+                <div
+                  className="pointer-events-none absolute inset-0"
+                  style={{
+                    background:
+                      "repeating-conic-gradient(from 0deg, rgba(var(--ray-color), var(--ray-alpha)) 0deg 8deg, rgba(0,0,0,0) 8deg 22deg)",
+                    filter: "blur(6px)",
+                    animation: "rb-rays-rotate var(--ray-rot-speed) linear infinite",
+                    transformOrigin: "50% 60%",
+                    opacity: 0.85,
+                  }}
+                />
+                {/* Layer 3: a secondary, slower counter-rotation for parallax */}
+                <div
+                  className="pointer-events-none absolute inset-0"
+                  style={{
+                    background:
+                      "repeating-conic-gradient(from 12deg, rgba(var(--ray-color), calc(var(--ray-alpha)*0.7)) 0deg 6deg, rgba(0,0,0,0) 6deg 20deg)",
+                    filter: "blur(10px)",
+                    animation: "rb-rays-rotate-rev calc(var(--ray-rot-speed)*1.6) linear infinite",
+                    transformOrigin: "50% 50%",
+                    opacity: 0.6,
+                  }}
+                />
+                <style jsx global>{`
+                  @keyframes rb-rays-rotate {
+                    to {
+                      transform: rotate(360deg);
+                    }
+                  }
+                  @keyframes rb-rays-rotate-rev {
+                    to {
+                      transform: rotate(-360deg);
+                    }
+                  }
+                `}</style>
+              </div>
+            );
+          }
+          EOF
+
+          # Write SplitTextHey.tsx
+          cat > web/components/text/SplitTextHey.tsx <<'EOF'
+          "use client";
+          import React, { useEffect } from "react";
+          import { gsap } from "gsap";
+
+          export function SplitTextHey() {
+            const text = "Hey!";
+            useEffect(() => {
+              const ctx = gsap.context(() => {
+                gsap.from(".split-letter", {
+                  y: 50,
+                  opacity: 0,
+                  stagger: 0.1,
+                  duration: 0.8,
+                  ease: "power3.out",
+                });
+              });
+              return () => ctx.revert();
+            }, []);
+            return (
+              <span className="inline-block text-6xl md:text-7xl font-bold text-white">
+                {text.split("").map((char, idx) => (
+                  <span key={idx} className="split-letter inline-block">
+                    {char}
+                  </span>
+                ))}
+              </span>
+            );
+          }
+          EOF
+
+          # Write IntroSequence.tsx
+          cat > web/components/experiences/IntroSequence.tsx <<'EOF'
+          "use client";
+          import React, { useEffect } from "react";
+          import { useRouter } from "next/navigation";
+          import { LightRaysBackground } from "@/components/backgrounds/LightRays";
+          import { SplitTextHey } from "@/components/text/SplitTextHey";
+
+          export default function IntroSequence() {
+            const router = useRouter();
+            useEffect(() => {
+              const timer = setTimeout(() => {
+                router.replace("/start");
+              }, 3000);
+              return () => clearTimeout(timer);
+            }, [router]);
+            return (
+              <div className="relative flex items-center justify-center min-h-screen overflow-hidden text-white bg-black">
+                <LightRaysBackground />
+                <SplitTextHey />
+              </div>
+            );
+          }
+          EOF
+
+          # Write TargetCursor.tsx
+          cat > web/components/cursor/TargetCursor.tsx <<'EOF'
+          "use client";
+          import React, { useEffect, useState } from "react";
+
+          export default function TargetCursor({ children }: { children: React.ReactNode }) {
+            const [pos, setPos] = useState({ x: 0, y: 0 });
+
+            useEffect(() => {
+              const move = (e: MouseEvent) => {
+                setPos({ x: e.clientX, y: e.clientY });
+              };
+              window.addEventListener("mousemove", move);
+              return () => window.removeEventListener("mousemove", move);
+            }, []);
+
+            return (
+              <>
+                <div
+                  aria-hidden
+                  className="fixed top-0 left-0 pointer-events-none z-50"
+                  style={{ transform: `translate(${pos.x - 12}px, ${pos.y - 12}px)` }}
+                >
+                  <div className="w-6 h-6 border-2 border-white rounded-full opacity-60"></div>
+                </div>
+                {children}
+              </>
+            );
+          }
+          EOF
+
+          # Write MagicBento.tsx
+          cat > web/components/bento/MagicBento.tsx <<'EOF'
+          "use client";
+          import React from "react";
+          import Link from "next/link";
+
+          export default function MagicBento() {
+            const tiles = [1, 2, 3, 4];
+            return (
+              <div className="grid grid-cols-2 gap-4 w-full max-w-md mx-auto">
+                {tiles.map((i) => (
+                  <Link
+                    key={i}
+                    href="/quiz/1"
+                    className="relative block aspect-square rounded-xl overflow-hidden bg-white/10 backdrop-blur-md hover:bg-white/20 transition"
+                  >
+                    <span className="absolute inset-0 flex items-center justify-center text-white text-2xl font-semibold">
+                      Start
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            );
+          }
+          EOF
+
+          # Write RevealOnView.tsx
+          cat > web/components/reveal/RevealOnView.tsx <<'EOF'
+          "use client";
+          import React, { useEffect, useRef, useState } from "react";
+
+          export default function RevealOnView({
+            children,
+            className = "",
+          }: {
+            children: React.ReactNode;
+            className?: string;
+          }) {
+            const ref = useRef<HTMLDivElement>(null);
+            const [visible, setVisible] = useState(false);
+
+            useEffect(() => {
+              const el = ref.current;
+              if (!el) return;
+              const observer = new IntersectionObserver(
+                (entries) => {
+                  if (entries[0].isIntersecting) {
+                    setVisible(true);
+                    observer.disconnect();
+                  }
+                },
+                { threshold: 0.2 }
+              );
+              observer.observe(el);
+              return () => observer.disconnect();
+            }, []);
+
+            return (
+              <div
+                ref={ref}
+                className={`${className} transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+              >
+                {children}
+              </div>
+            );
+          }
+          EOF
+
+          # Write ScrollDownBackdrop.tsx
+          cat > web/components/reveal/ScrollDownBackdrop.tsx <<'EOF'
+          "use client";
+          import React, { useEffect, useState } from "react";
+
+          export default function ScrollDownBackdrop() {
+            const [hidden, setHidden] = useState(false);
+            useEffect(() => {
+              const handler = () => {
+                setHidden(window.scrollY > 50);
+              };
+              window.addEventListener("scroll", handler);
+              return () => window.removeEventListener("scroll", handler);
+            }, []);
+            return (
+              <div
+                aria-hidden
+                className={`fixed inset-x-0 bottom-4 flex justify-center pointer-events-none transition-opacity ${hidden ? "opacity-0" : "opacity-100"}`}
+              >
+                <span className="animate-bounce text-white text-2xl">↓</span>
+              </div>
+            );
+          }
+          EOF
+
+          # Write MagicAnswerBento.tsx
+          cat > web/components/questions/MagicAnswerBento.tsx <<'EOF'
+          "use client";
+          import React from "react";
+
+          interface Option {
+            value: string;
+            label: string;
+          }
+
+          interface Props {
+            options: Option[];
+            selected?: string | null;
+            onSelect: (value: string) => void;
+          }
+
+          export default function MagicAnswerBento({ options, selected, onSelect }: Props) {
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {options.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => onSelect(opt.value)}
+                    className={`p-6 rounded-xl border border-white/20 backdrop-blur-md text-left transition ${selected === opt.value ? "bg-white/20" : "bg-white/5 hover:bg-white/10"}`}
+                  >
+                    <span className="text-lg text-white">{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            );
+          }
+          EOF
+
+          # Write QuestionRevealPage.tsx
+          cat > web/components/questions/QuestionRevealPage.tsx <<'EOF'
+          "use client";
+          import React from "react";
+          import { useRouter } from "next/navigation";
+          import MagicAnswerBento from "@/components/questions/MagicAnswerBento";
+          import RevealOnView from "@/components/reveal/RevealOnView";
+          import ScrollDownBackdrop from "@/components/reveal/ScrollDownBackdrop";
+          import { useStore } from "@/lib/store";
+          import { questions } from "@/config/questions";
+
+          export default function QuestionRevealPage({ index }: { index: number }) {
+            const router = useRouter();
+            const q = questions[index - 1];
+            const answer = useStore((state) => state.answers[q.key] ?? null);
+            const setAnswer = useStore((state) => state.setAnswer);
+
+            function handleSelect(value: string) {
+              setAnswer(q.key, value);
+            }
+
+            function handleNext() {
+              if (!answer) return;
+              if (index < questions.length) {
+                router.push(`/quiz/${index + 1}`);
+              } else {
+                router.push("/quiz/result");
+              }
+            }
+
+            return (
+              <div className="relative min-h-screen flex flex-col items-center justify-center px-6 py-16 bg-black text-white space-y-12">
+                <RevealOnView className="max-w-2xl text-center space-y-8">
+                  <h1 className="text-3xl md:text-4xl font-semibold mb-6">{q.prompt}</h1>
+                  <MagicAnswerBento options={q.options} selected={answer} onSelect={handleSelect} />
+                </RevealOnView>
+                <RevealOnView>
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    disabled={!answer}
+                    className={`mt-8 px-6 py-3 rounded-md border border-white/30 transition ${answer ? "bg-white text-black hover:bg-gray-200" : "bg-gray-700 text-gray-500 cursor-not-allowed"}`}
+                  >
+                    {index < questions.length ? "Next" : "See Results"}
+                  </button>
+                </RevealOnView>
+                <ScrollDownBackdrop />
+              </div>
+            );
+          }
+          EOF
+
+          # Write ResultsBento.tsx
+          cat > web/components/results/ResultsBento.tsx <<'EOF'
+          "use client";
+          import React from "react";
+          import { useStore } from "@/lib/store";
+          import { computeScore } from "@/config/scoring";
+          import { buildSkoolUrl } from "@/lib/urls";
+          import Link from "next/link";
+
+          export default function ResultsBento() {
+            const answers = useStore((state) => state.answers);
+            const { score, tier, offer } = computeScore(answers);
+            const skoolUrl = buildSkoolUrl(answers, tier, offer);
+
+            return (
+              <div className="min-h-screen flex flex-col items-center justify-center px-4 py-16 bg-black text-white space-y-8">
+                <h1 className="text-4xl font-bold">Your Plan</h1>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl w-full">
+                  {Object.entries(answers).map(([key, value]) => (
+                    <div key={key} className="p-4 bg-white/10 rounded-lg backdrop-blur-md">
+                      <h3 className="text-sm uppercase tracking-wide text-gray-400">{key}</h3>
+                      <p className="text-lg break-words">{value}</p>
+                    </div>
+                  ))}
+                  <div className="p-4 bg-white/10 rounded-lg backdrop-blur-md">
+                    <h3 className="text-sm uppercase tracking-wide text-gray-400">Tier</h3>
+                    <p className="text-lg">{tier}</p>
+                  </div>
+                  <div className="p-4 bg-white/10 rounded-lg backdrop-blur-md">
+                    <h3 className="text-sm uppercase tracking-wide text-gray-400">Offer</h3>
+                    <p className="text-lg">{offer}</p>
+                  </div>
+                </div>
+                <Link
+                  href={skoolUrl}
+                  className="mt-8 px-6 py-3 rounded-md bg-white text-black hover:bg-gray-200 transition"
+                >
+                  Join Skool Community
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => alert('Feature coming soon!')}
+                  className="text-sm underline"
+                >
+                  Email my plan
+                </button>
+              </div>
+            );
+          }
+          EOF
+
+          # Write questions.ts
+          cat > web/config/questions.ts <<'EOF'
+          export interface QuestionOption {
+            value: string;
+            label: string;
+          }
+
+          export interface Question {
+            key: string;
+            prompt: string;
+            options: QuestionOption[];
+          }
+
+          export const questions: Question[] = [
+            {
+              key: "segment",
+              prompt: "Which segment best describes you?",
+              options: [
+                { value: "home-construction", label: "Home Construction" },
+                { value: "architecture", label: "Architecture" },
+                { value: "renovation", label: "Renovation" },
+                { value: "design", label: "Interior Design" },
+              ],
+            },
+            {
+              key: "team",
+              prompt: "What is your team size?",
+              options: [
+                { value: "1", label: "Just me" },
+                { value: "2-5", label: "2–5 people" },
+                { value: "6-10", label: "6–10 people" },
+                { value: "10+", label: "More than 10" },
+              ],
+            },
+            {
+              key: "ai",
+              prompt: "How do you feel about AI for your work?",
+              options: [
+                { value: "curious", label: "Curious about AI" },
+                { value: "excited", label: "Excited and ready to adopt" },
+                { value: "skeptical", label: "Skeptical, show me results" },
+                { value: "afraid", label: "Afraid it will replace me" },
+              ],
+            },
+            {
+              key: "pain",
+              prompt: "What is your biggest pain point right now?",
+              options: [
+                { value: "customer-leads", label: "Getting qualified leads" },
+                { value: "communication", label: "Communication & collaboration" },
+                { value: "manual-tasks", label: "Too many manual tasks" },
+                { value: "scaling", label: "Scaling my business" },
+              ],
+            },
+            {
+              key: "value",
+              prompt: "What do you value most for your business per month?",
+              options: [
+                { value: "less-than-5k", label: "Less than $5k" },
+                { value: "5k-20k", label: "$5k to $20k" },
+                { value: "20k-50k", label: "$20k to $50k" },
+                { value: "50k+", label: "Over $50k" },
+              ],
+            },
+          ];
+          EOF
+
+          # Write scoring.ts
+          cat > web/config/scoring.ts <<'EOF'
+          export type Tier = "Plinko Pocket" | "Playbook Pro" | "Playbook Plus";
+
+          export function computeScore(answers: Record<string, string>) {
+            let score = 0;
+            // simple heuristics
+            if (answers.segment === "home-construction") score += 2;
+            if (answers.segment === "architecture") score += 1;
+            if (answers.team === "10+") score += 3;
+            if (answers.team === "6-10") score += 2;
+            if (answers.ai === "excited") score += 3;
+            if (answers.ai === "curious") score += 2;
+            if (answers.pain === "scaling") score += 2;
+            if (answers.pain === "manual-tasks") score += 1;
+            if (answers.value === "50k+") score += 3;
+            if (answers.value === "20k-50k") score += 2;
+            let tier: Tier;
+            let offer: string;
+            if (score >= 10) {
+              tier = "Playbook Plus";
+              offer = "Playbook Plus";
+            } else if (score >= 6) {
+              tier = "Playbook Pro";
+              offer = "Playbook Pro";
+            } else {
+              tier = "Plinko Pocket";
+              offer = "Plinko Pocket";
+            }
+            return { score, tier, offer };
+          }
+          EOF
+
+          # Write store.ts
+          cat > web/lib/store.ts <<'EOF'
+          "use client";
+          import { create } from "zustand";
+          import { persist } from "zustand/middleware";
+
+          interface QuizState {
+            answers: Record<string, string>;
+            setAnswer: (key: string, value: string) => void;
+            reset: () => void;
+          }
+
+          export const useStore = create<QuizState>()(
+            persist(
+              (set) => ({
+                answers: {},
+                setAnswer: (key, value) =>
+                  set((state) => ({
+                    answers: { ...state.answers, [key]: value },
+                  })),
+                reset: () => set({ answers: {} }),
+              }),
+              {
+                name: "quiz-answers",
+              }
+            )
+          );
+          EOF
+
+          # Write format.ts
+          cat > web/lib/format.ts <<'EOF'
+          export function formatValue(value: string) {
+            return value
+              .replace(/less-than/, "Less than ")
+              .replace(/k\+/, "k+")
+              .replace(/-/, " to ")
+              .replace(/_/g, " ");
+          }
+          EOF
+
+          # Write urls.ts
+          cat > web/lib/urls.ts <<'EOF'
+          export function buildSkoolUrl(answers: Record<string, string>, tier: string, offer: string) {
+            const base = process.env.NEXT_PUBLIC_SKOOL_URL || "";
+            const params = new URLSearchParams();
+            params.set("utm_source", "quiz");
+            params.set("utm_medium", "web");
+            params.set("utm_campaign", "skool_onboarding");
+            params.set("utm_content", `${answers.segment ?? ""}_${answers.pain ?? ""}`);
+            params.set("lead", answers.segment ?? "");
+            params.set("code", tier);
+            params.set("tier", tier);
+            params.set("offer", offer);
+            return `${base}?${params.toString()}`;
+          }
+          EOF
+
+          # Write ids.ts
+          cat > web/lib/ids.ts <<'EOF'
+          export const APP_ID = "quiz-app";
+          EOF
+
+          # Write app/page.tsx
+          cat > web/app/page.tsx <<'EOF'
+          import IntroSequence from "@/components/experiences/IntroSequence";
+          export default function Page() {
+            return <IntroSequence />;
+          }
+          EOF
+
+          # Write app/start/page.tsx
+          cat > web/app/start/page.tsx <<'EOF'
+          import dynamic from "next/dynamic";
+
+          const TargetCursor = dynamic(() => import("@/components/cursor/TargetCursor"), { ssr: false });
+          const MagicBento = dynamic(() => import("@/components/bento/MagicBento"), { ssr: false });
+
+          export default function StartPage() {
+            return (
+              <TargetCursor>
+                <div className="relative flex items-center justify-center min-h-screen bg-black text-white">
+                  <MagicBento />
+                </div>
+              </TargetCursor>
+            );
+          }
+          EOF
+
+          # Write quiz pages 1-5
+          cat > web/app/quiz/1/page.tsx <<'EOF'
+          import dynamic from "next/dynamic";
+          const QuestionRevealPage = dynamic(() => import("@/components/questions/QuestionRevealPage"), { ssr: false });
+          export default function Quiz1() {
+            return <QuestionRevealPage index={1} />;
+          }
+          EOF
+
+          cat > web/app/quiz/2/page.tsx <<'EOF'
+          import dynamic from "next/dynamic";
+          const QuestionRevealPage = dynamic(() => import("@/components/questions/QuestionRevealPage"), { ssr: false });
+          export default function Quiz2() {
+            return <QuestionRevealPage index={2} />;
+          }
+          EOF
+
+          cat > web/app/quiz/3/page.tsx <<'EOF'
+          import dynamic from "next/dynamic";
+          const QuestionRevealPage = dynamic(() => import("@/components/questions/QuestionRevealPage"), { ssr: false });
+          export default function Quiz3() {
+            return <QuestionRevealPage index={3} />;
+          }
+          EOF
+
+          cat > web/app/quiz/4/page.tsx <<'EOF'
+          import dynamic from "next/dynamic";
+          const QuestionRevealPage = dynamic(() => import("@/components/questions/QuestionRevealPage"), { ssr: false });
+          export default function Quiz4() {
+            return <QuestionRevealPage index={4} />;
+          }
+          EOF
+
+          cat > web/app/quiz/5/page.tsx <<'EOF'
+          import dynamic from "next/dynamic";
+          const QuestionRevealPage = dynamic(() => import("@/components/questions/QuestionRevealPage"), { ssr: false });
+          export default function Quiz5() {
+            return <QuestionRevealPage index={5} />;
+          }
+          EOF
+
+          # Write result page
+          cat > web/app/quiz/result/page.tsx <<'EOF'
+          import dynamic from "next/dynamic";
+          const ResultsBento = dynamic(() => import("@/components/results/ResultsBento"), { ssr: false });
+          export default function ResultPage() {
+            return <ResultsBento />;
+          }
+          EOF
+
+          # Stage and commit
+          git add .
+          if ! git diff --cached --quiet; then
+            git commit -m "Scaffold quiz app (intro, start, quiz 1–5, results)"
+            git push origin HEAD:feat/next-quiz-web
+          else
+            echo "No changes to commit"
+          fi
