@@ -397,6 +397,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p web/app/start
           cat > web/app/page.tsx <<'EOF'
           import { IntroSequence } from '@/components/experiences/IntroSequence';
           export default function Home(){ return <IntroSequence nextHref='/start' /> }
