@@ -20,43 +20,19 @@ jobs:
           ref: ${{ github.event.inputs.branch }}
           fetch-depth: 0
 
-      - name: Write quiz files
+      # ───────────────────────────────────────────────────────────────────
+      # Step 1: Dirs + base libs
+      # ───────────────────────────────────────────────────────────────────
+      - name: Create dirs + base libs
         shell: bash
         run: |
           set -euo pipefail
-
-          mkdir -p web/app \
-                   web/app/quiz/{1,2,3,4,5,result} \
+          mkdir -p web/app web/app/quiz/{1,2,3,4,5,result} \
                    web/components/{backgrounds,text,experiences,cursor,bento,reveal,questions,results} \
                    web/lib web/config
 
           cat > web/lib/utils.ts <<'EOF'
           export function cn(...cls:(string|false|null|undefined)[]){return cls.filter(Boolean).join(' ');}
-          EOF
-
-          cat > web/lib/store.ts <<'EOF'
-          'use client';
-          import { create } from 'zustand';
-          import { persist } from 'zustand/middleware';
-
-          export type Segment = 'real_estate'|'consulting'|'personal_brand'|'agency'|'finance'|'construction'|'other';
-          export type Answers = {
-            segment?: Segment;
-            teamSize?: 'solo'|'2-5'|'6-20'|'21+';
-            sentiment?: 'excited'|'curious'|'overwhelmed'|'skeptical'|'daily'|'starting';
-            tools?: string[];
-            pain?: string;
-            pain_other?: string;
-            valuePerMonth?: number;
-            urgency?: 'asap'|'30d'|'quarter'|'research';
-            email?: string;
-            name?: string;
-          };
-          type State = { a: Answers; set:<K extends keyof Answers>(k:K,v:Answers[K])=>void; reset:()=>void; };
-          export const useQuiz = create<State>()(persist(
-            (set,get)=>({ a:{}, set:(k,v)=>set({ a:{...get().a, [k]:v} }), reset:()=>set({ a:{} }) }),
-            { name:'ai-quiz-funnel-v3' }
-          ));
           EOF
 
           cat > web/lib/format.ts <<'EOF'
@@ -88,6 +64,37 @@ jobs:
           }
           EOF
 
+      # ───────────────────────────────────────────────────────────────────
+      # Step 2: Store + scoring
+      # ───────────────────────────────────────────────────────────────────
+      - name: Write store + scoring
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > web/lib/store.ts <<'EOF'
+          'use client';
+          import { create } from 'zustand';
+          import { persist } from 'zustand/middleware';
+          export type Segment = 'real_estate'|'consulting'|'personal_brand'|'agency'|'finance'|'construction'|'other';
+          export type Answers = {
+            segment?: Segment;
+            teamSize?: 'solo'|'2-5'|'6-20'|'21+';
+            sentiment?: 'excited'|'curious'|'overwhelmed'|'skeptical'|'daily'|'starting';
+            tools?: string[];
+            pain?: string;
+            pain_other?: string;
+            valuePerMonth?: number;
+            urgency?: 'asap'|'30d'|'quarter'|'research';
+            email?: string;
+            name?: string;
+          };
+          type State = { a: Answers; set:<K extends keyof Answers>(k:K,v:Answers[K])=>void; reset:()=>void; };
+          export const useQuiz = create<State>()(persist(
+            (set,get)=>({ a:{}, set:(k,v)=>set({ a:{...get().a, [k]:v} }), reset:()=>set({ a:{} }) }),
+            { name:'ai-quiz-funnel-v3' }
+          ));
+          EOF
+
           cat > web/config/scoring.ts <<'EOF'
           import type { Answers } from '@/lib/store';
           export type ScoreProfile = {
@@ -108,6 +115,13 @@ jobs:
           }
           EOF
 
+      # ───────────────────────────────────────────────────────────────────
+      # Step 3: Questions config
+      # ───────────────────────────────────────────────────────────────────
+      - name: Write questions config
+        shell: bash
+        run: |
+          set -euo pipefail
           cat > web/config/questions.ts <<'EOF'
           export const SEGMENTS = [
             { key:'real_estate', label:'Real Estate' },
@@ -179,6 +193,13 @@ jobs:
           };
           EOF
 
+      # ───────────────────────────────────────────────────────────────────
+      # Step 4: Backgrounds + Text + Intro
+      # ───────────────────────────────────────────────────────────────────
+      - name: Write backgrounds + text + intro
+        shell: bash
+        run: |
+          set -euo pipefail
           cat > web/components/backgrounds/LightRays.tsx <<'EOF'
           'use client';
           import React,{useEffect,useRef} from 'react';
@@ -236,6 +257,13 @@ jobs:
           }
           EOF
 
+      # ───────────────────────────────────────────────────────────────────
+      # Step 5: Cursor + Bento
+      # ───────────────────────────────────────────────────────────────────
+      - name: Write cursor + bento
+        shell: bash
+        run: |
+          set -euo pipefail
           cat > web/components/cursor/TargetCursor.tsx <<'EOF'
           'use client';
           import React,{useEffect,useRef} from 'react';
@@ -281,6 +309,13 @@ jobs:
           }
           EOF
 
+      # ───────────────────────────────────────────────────────────────────
+      # Step 6: Reveal + Questions + Results shell
+      # ───────────────────────────────────────────────────────────────────
+      - name: Write reveal + questions + results
+        shell: bash
+        run: |
+          set -euo pipefail
           cat > web/components/reveal/RevealOnView.tsx <<'EOF'
           'use client';
           import React,{useEffect,useRef,useState} from 'react';
@@ -341,6 +376,27 @@ jobs:
           }
           EOF
 
+          cat > web/components/results/ResultsBento.tsx <<'EOF'
+          'use client';
+          import React from 'react';
+          import { cn } from '@/lib/utils';
+          export function ResultsBento({items}:{items:{label:string;value:string}[]}){
+            return (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {items.map((it,i)=>(<div key={i} className={cn('rounded-2xl border border-white/10 bg-white/5 p-4')}>
+                <div className="text-white/60 text-sm">{it.label}</div>
+                <div className="text-white text-lg font-semibold mt-1">{it.value}</div>
+              </div>))}
+            </div>);
+          }
+          EOF
+
+      # ───────────────────────────────────────────────────────────────────
+      # Step 7: Root + Start pages
+      # ───────────────────────────────────────────────────────────────────
+      - name: Write root + start pages
+        shell: bash
+        run: |
+          set -euo pipefail
           cat > web/app/page.tsx <<'EOF'
           import { IntroSequence } from '@/components/experiences/IntroSequence';
           export default function Home(){ return <IntroSequence nextHref='/start' /> }
@@ -371,6 +427,13 @@ jobs:
           }
           EOF
 
+      # ───────────────────────────────────────────────────────────────────
+      # Step 8: Quiz pages 1–3
+      # ───────────────────────────────────────────────────────────────────
+      - name: Write quiz pages 1-3
+        shell: bash
+        run: |
+          set -euo pipefail
           cat > web/app/quiz/1/page.tsx <<'EOF'
           'use client';
           import React from 'react';
@@ -430,6 +493,13 @@ jobs:
           }
           EOF
 
+      # ───────────────────────────────────────────────────────────────────
+      # Step 9: Quiz pages 4–5 + result
+      # ───────────────────────────────────────────────────────────────────
+      - name: Write quiz pages 4-5 + result
+        shell: bash
+        run: |
+          set -euo pipefail
           cat > web/app/quiz/4/page.tsx <<'EOF'
           'use client';
           import React from 'react';
@@ -484,7 +554,6 @@ jobs:
           import { ResultsBento } from '@/components/results/ResultsBento';
           import { newJoinCode, newLeadId } from '@/lib/ids';
           import { buildSkoolLink } from '@/lib/urls';
-
           export default function Result(){
             const { a } = useQuiz();
             const score = scoreProfile(a);
@@ -497,14 +566,12 @@ jobs:
             const invite1 = `${appUrl}/?ref=${encodeURIComponent(leadId)}-1`;
             const invite2 = `${appUrl}/?ref=${encodeURIComponent(leadId)}-2`;
             const invite3 = `${appUrl}/?ref=${encodeURIComponent(leadId)}-3`;
-
             return (
               <main className="min-h-dvh bg-black text-white">
                 <section className="mx-auto max-w-3xl px-6 pt-20 pb-10">
                   <h1 className="text-3xl md:text-4xl font-semibold">Your personalized plan</h1>
                   <p className="text-white/70 mt-2">Here’s a quick snapshot of what you told me and where I recommend we start.</p>
                 </section>
-
                 <section className="mx-auto max-w-5xl px-6 pb-12">
                   <ResultsBento items={[
                     { label:'Segment', value: humanSegment(a.segment) },
@@ -517,7 +584,6 @@ jobs:
                     { label:'Offer', value: score.offer },
                   ]} />
                 </section>
-
                 <section className="mx-auto max-w-3xl px-6 pb-20 space-y-4">
                   <a className="inline-flex items-center gap-2 rounded-xl bg-white text-black px-5 py-3 font-semibold hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white" href={skoolUrl} target="_blank" rel="noreferrer">Join the Skool group</a>
                   <div><a className="text-white/80 underline" href={emailLink} target="_blank" rel="noreferrer">Email this plan to me</a></div>
@@ -531,6 +597,14 @@ jobs:
             );
           }
           EOF
+
+      # ───────────────────────────────────────────────────────────────────
+      # Step 10: Patch deps + clean mis-nested + commit
+      # ───────────────────────────────────────────────────────────────────
+      - name: Patch deps, clean, commit & push
+        shell: bash
+        run: |
+          set -euo pipefail
 
           node - <<'NODE'
           const fs = require('fs');
