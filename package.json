@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint --ext .js . && cd web && npm run lint"
   },
   "dependencies": {
     "gsap": "^3.12.2",
