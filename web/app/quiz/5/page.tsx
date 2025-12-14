@@ -6,7 +6,8 @@ import { QuestionRevealPage } from '@/components/questions/QuestionRevealPage';
 export default function Step5(){
   const router=useRouter(); const { set } = useQuiz();
   const [stage,setStage]=useState<'value'|'urgency'>('value');
-  if(stage==='value') return (<QuestionRevealPage title="If we fixed that one thing, about how much would it be worth each month?"
+  if(stage==='value') {
+    return (<QuestionRevealPage title="If we fixed that one thing, about how much would it be worth each month?"
     note="A rough guess is perfect—this just helps me right-size."
     answers={[
       {key:'250',label:'$0–$499'},
@@ -14,6 +15,7 @@ export default function Step5(){
       {key:'3000',label:'$2k–$4.9k'},
       {key:'6000',label:'$5k+'},
     ]} onPick={(k)=>{ set('valuePerMonth', Number(k)); setStage('urgency'); }} />);
+  }
   return (<QuestionRevealPage title="How soon would you act if the right solution showed up?"
     answers={[
       {key:'asap',label:'ASAP'},

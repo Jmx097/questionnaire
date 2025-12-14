@@ -1,3 +1,4 @@
+import React from "react";
 import "./globals.css";
 import type { Metadata } from "next";
 import GlobalLightRays from '@/components/backgrounds/GlobalLightRays';

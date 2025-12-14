@@ -191,7 +191,7 @@ class ResultsGenerator {
      * Calculate automation readiness score
      */
     calculateAutomationScore(responses) {
-        let baseScore = 50; // Starting baseline
+        const baseScore = 50; // Starting baseline
         let multiplier = 1.0;
 
         // Industry factor
@@ -290,7 +290,7 @@ class ResultsGenerator {
     generateAssessmentSummary(responses, score) {
         const industry = responses.industry || 'other';
         const teamSize = responses.team_size || 'unknown';
-        const technicalLevel = responses.technical_level || 'unknown';
+        const _technicalLevel = responses.technical_level || 'unknown';
         const painPoints = Array.isArray(responses.pain_points) ? responses.pain_points : [];
         
         const teamSizeText = {
@@ -378,12 +378,12 @@ class ResultsGenerator {
     /**
      * Generate specific recommendations
      */
-    generateSpecificRecommendations(responses, score) {
+    generateSpecificRecommendations(responses, _score) {
         const recommendations = [];
-        const industry = responses.industry || 'other';
+        const _industry = responses.industry || 'other';
         const technicalLevel = responses.technical_level || 'beginner';
         const budget = parseInt(responses.budget) || 1500;
-        const timeline = responses.timeline || 'quarter';
+        const _timeline = responses.timeline || 'quarter';
 
         // Budget-based recommendations
         if (budget >= 3000) {
@@ -457,10 +457,10 @@ class ResultsGenerator {
     /**
      * Generate tailored solutions
      */
-    generateTailoredSolutions(responses, score) {
+    generateTailoredSolutions(responses, _score) {
         const solutions = [];
         const industry = responses.industry || 'other';
-        const painPoints = Array.isArray(responses.pain_points) ? responses.pain_points : [];
+        const _painPoints = Array.isArray(responses.pain_points) ? responses.pain_points : [];
         const budget = parseInt(responses.budget) || 1500;
         const timeline = responses.timeline || 'quarter';
 
@@ -531,7 +531,7 @@ class ResultsGenerator {
     /**
      * Generate next steps based on responses
      */
-    generateNextSteps(responses, score) {
+    generateNextSteps(responses, _score) {
         const steps = [];
         const timeline = responses.timeline || 'quarter';
         const technicalLevel = responses.technical_level || 'beginner';
@@ -669,7 +669,7 @@ class ResultsGenerator {
             industryInsight: results.industryInsight
         };
 
-        let htmlContent = `
+        const htmlContent = `
             <h1>${pdfData.title}</h1>
             <p><strong>Generated On:</strong> ${pdfData.generatedDate}</p>
             <hr>
