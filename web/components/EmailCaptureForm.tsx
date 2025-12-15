@@ -1,9 +1,6 @@
 'use client';
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuiz } from '@/lib/store';
-import { scoreProfile } from '@/config/scoring';
-import { humanSegment, humanCurrency } from '@/lib/format';
 import { useRouter } from 'next/navigation';
 
 interface EmailCaptureFormProps {
@@ -17,7 +14,6 @@ interface EmailCaptureFormProps {
 
 export function EmailCaptureForm({ onSubmit }: EmailCaptureFormProps) {
   const { a } = useQuiz();
-  const router = useRouter();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -27,17 +23,48 @@ export function EmailCaptureForm({ onSubmit }: EmailCaptureFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Calculate profile preview
-  const score = scoreProfile(a);
-  const profilePreview = {
-    segment: humanSegment(a.segment),
-    goal: score.offer,
-    pain: a.pain || 'Not specified',
-    score: `${score.score}/100`,
-    band: score.tier,
+  // Simple profile calculation
+  const getScore = () => {
+    let total = 0;
+    if (a.teamSize === 'solo') total += 0;
+    else if (a.teamSize === '2-5') total += 1;
+    else if (a.teamSize === '6-20' || a.teamSize === '21+') total += 2;
+    
+    const budget = a.valuePerMonth ?? 0;
+    if (budget >= 5000) total += 3;
+    else if (budget >= 2000) total += 2;
+    else if (budget >= 500) total += 1;
+    
+    if (a.urgency === 'asap' || a.urgency === '30d') total += 2;
+    else if (a.urgency === 'quarter') total += 1;
+    
+    return Math.round((total / 13) * 100);
   };
 
-  // Validation functions
+  const getSegmentName = () => {
+    const map = {
+      real_estate: 'Real Estate',
+      consulting: 'Consulting / Coaching',
+      personal_brand: 'Personal Brand / Creator',
+      agency: 'Creative / Marketing Agency',
+      finance: 'Private Equity / Finance',
+      construction: 'Home Construction / Contractor',
+      other: 'Other'
+    };
+    return a.segment ? (map[a.segment as keyof typeof map] ?? 'Other') : 'Unknown';
+  };
+
+  const getTier = () => {
+    const score = getScore();
+    return score >= 70 ? 'high' : score >= 40 ? 'mid' : 'low';
+  };
+
+  const getOffer = () => {
+    const tier = getTier();
+    return tier === 'low' ? 'Plinko Pocket' : tier === 'mid' ? 'Playbook Pro' : 'Playbook Plus';
+  };
+
+  // Simple validation
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
@@ -71,17 +98,6 @@ export function EmailCaptureForm({ onSubmit }: EmailCaptureFormProps) {
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
-
-    // Auto-save (debounced)
-    const timeoutId = setTimeout(() => {
-      // Save to localStorage or state management
-      const savedData = localStorage.getItem('emailCaptureData');
-      const currentData = savedData ? JSON.parse(savedData) : {};
-      const updatedData = { ...currentData, [field]: value };
-      localStorage.setItem('emailCaptureData', JSON.stringify(updatedData));
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -94,8 +110,6 @@ export function EmailCaptureForm({ onSubmit }: EmailCaptureFormProps) {
     setIsSubmitting(true);
     try {
       await onSubmit(formData);
-      // Clear saved data after successful submit
-      localStorage.removeItem('emailCaptureData');
     } catch (error) {
       console.error('Error submitting email capture:', error);
       setErrors({ submit: 'Something went wrong. Please try again.' });
@@ -104,18 +118,14 @@ export function EmailCaptureForm({ onSubmit }: EmailCaptureFormProps) {
     }
   };
 
-  // Load saved data on mount
-  useEffect(() => {
-    const savedData = localStorage.getItem('emailCaptureData');
-    if (savedData) {
-      try {
-        const parsed = JSON.parse(savedData);
-        setFormData(prev => ({ ...prev, ...parsed }));
-      } catch (error) {
-        console.error('Error loading saved email data:', error);
-      }
-    }
-  }, []);
+  const score = getScore();
+  const profilePreview = {
+    segment: getSegmentName(),
+    goal: getOffer(),
+    pain: a.pain || 'Not specified',
+    score: `${score}/100`,
+    band: getTier(),
+  };
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center px-6">
