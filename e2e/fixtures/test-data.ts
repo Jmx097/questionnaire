@@ -54,7 +54,7 @@ export const testScenarios = {
       valuePerMonth: testAnswers.valuePerMonth.fiveToTwentyk,
       urgency: testAnswers.urgency.nextMonth,
     },
-    expectedTier: 'Tier 2' | 'Tier 3',
+    expectedTier: 'Tier 2',
   },
   realEstateAgent: {
     answers: {
@@ -65,7 +65,7 @@ export const testScenarios = {
       valuePerMonth: testAnswers.valuePerMonth.twentyToFiftyk,
       urgency: testAnswers.urgency.nextWeek,
     },
-    expectedTier: 'Tier 2' | 'Tier 3',
+    expectedTier: 'Tier 2',
   },
   enterpriseAgency: {
     answers: {
@@ -76,6 +76,6 @@ export const testScenarios = {
       valuePerMonth: testAnswers.valuePerMonth.fiftykPlus,
       urgency: testAnswers.urgency.asap,
     },
-    expectedTier: 'Tier 1' | 'Tier 2',
+    expectedTier: 'Tier 1',
   },
 };
