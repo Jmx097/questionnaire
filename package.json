@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint --ext .js . && cd web && npm run lint"
+    "lint": "eslint --ext .js . && cd web && npm run lint",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
     "gsap": "^3.12.2",
@@ -15,6 +19,7 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@types/gsap": "^3.0.0",
     "@types/node": "20.19.10",
     "@types/react": "^18.3.5",
