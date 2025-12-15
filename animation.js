@@ -153,6 +153,141 @@ class AnimationManager {
     }
 
     /**
+     * Special transition for email capture page
+     */
+    async animateEmailCaptureTransition(fromElement, toElement) {
+        if (fromElement) {
+            fromElement.style.transition = `all ${this.transitionDuration}ms ${this.easing}`;
+            fromElement.style.transform = 'translateX(-100%)';
+            fromElement.style.opacity = '0';
+            await this.delay(this.transitionDuration);
+            fromElement.style.display = 'none';
+        }
+
+        if (toElement) {
+            toElement.style.transition = `all ${this.transitionDuration}ms ${this.easing}`;
+            toElement.style.display = 'flex';
+            toElement.style.opacity = '0';
+            toElement.style.transform = 'translateX(100%)';
+            
+            // Force reflow
+            void toElement.offsetWidth;
+            
+            toElement.style.opacity = '1';
+            toElement.style.transform = 'translateX(0)';
+            await this.delay(this.transitionDuration);
+            toElement.style.transition = '';
+        }
+    }
+
+    /**
+     * Animate email capture to results transition
+     */
+    async animateEmailToResultsTransition(fromElement, toElement) {
+        if (fromElement) {
+            fromElement.style.transition = `all ${this.transitionDuration}ms ${this.easing}`;
+            fromElement.style.transform = 'translateY(-50px)';
+            fromElement.style.opacity = '0';
+            await this.delay(this.transitionDuration);
+            fromElement.style.display = 'none';
+        }
+
+        if (toElement) {
+            toElement.style.transition = `all ${this.transitionDuration}ms ${this.easing}`;
+            toElement.style.display = 'block';
+            toElement.style.opacity = '0';
+            toElement.style.transform = 'translateY(50px)';
+            
+            // Force reflow
+            void toElement.offsetWidth;
+            
+            toElement.style.opacity = '1';
+            toElement.style.transform = 'translateY(0)';
+            await this.delay(this.transitionDuration);
+            toElement.style.transition = '';
+        }
+    }
+
+    /**
+     * Animate profile preview elements
+     */
+    animateProfilePreview() {
+        const previewElements = document.querySelectorAll('.profile-preview-item');
+        previewElements.forEach((element, index) => {
+            element.style.opacity = '0';
+            element.style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                element.style.transition = `opacity 300ms ${this.easing}, transform 300ms ${this.easing}`;
+                element.style.opacity = '1';
+                element.style.transform = 'translateY(0)';
+            }, index * 100);
+        });
+    }
+
+    /**
+     * Animate form submission success
+     */
+    animateFormSubmission() {
+        const form = document.querySelector('.email-capture-form');
+        const successMessage = document.querySelector('.submission-success');
+        
+        if (form && successMessage) {
+            form.style.transition = `opacity 300ms ${this.easing}`;
+            form.style.opacity = '0';
+            
+            setTimeout(() => {
+                form.style.display = 'none';
+                successMessage.style.display = 'block';
+                successMessage.style.opacity = '0';
+                successMessage.style.transform = 'scale(0.8)';
+                
+                void successMessage.offsetWidth; // Force reflow
+                
+                successMessage.style.transition = `opacity 300ms ${this.easing}, transform 300ms ${this.easing}`;
+                successMessage.style.opacity = '1';
+                successMessage.style.transform = 'scale(1)';
+            }, 300);
+        }
+    }
+
+    /**
+     * Animate validation errors
+     */
+    animateValidationErrors() {
+        const errorElements = document.querySelectorAll('.validation-error');
+        errorElements.forEach(errorElement => {
+            errorElement.style.transition = `opacity 200ms ${this.easing}, transform 200ms ${this.easing}`;
+            errorElement.style.transform = 'translateX(-10px)';
+            errorElement.style.opacity = '1';
+            
+            setTimeout(() => {
+                errorElement.style.transform = 'translateX(0)';
+            }, 50);
+        });
+    }
+
+    /**
+     * Animate score circle for profile preview
+     */
+    animatePreviewScoreCircle(targetScore) {
+        const scoreElement = document.querySelector('.preview-score');
+        if (scoreElement) {
+            let currentScore = 0;
+            const increment = Math.max(1, Math.floor(targetScore / 50));
+            
+            const interval = setInterval(() => {
+                currentScore += increment;
+                if (currentScore >= targetScore) {
+                    currentScore = targetScore;
+                    clearInterval(interval);
+                }
+                scoreElement.textContent = currentScore;
+            }, 50);
+        }
+    }
+
+    /**
      * Utility for delay
      */
     delay(ms) {
