@@ -22,5 +22,5 @@ export default function Step5(){
       {key:'30d',label:'Within 30 days'},
       {key:'quarter',label:'This quarter'},
       {key:'research',label:'Just researching'},
-    ]} onPick={(k)=>{ set('urgency', k as any); router.push('/quiz/result'); }} />);
+    ]} onPick={(k)=>{ set('urgency', k as any); router.push('/quiz/email-capture'); }} />);
 }
