@@ -9,6 +9,7 @@ interface EmailCaptureFormProps {
     email: string;
     optInEmails: boolean;
     acceptPrivacy: boolean;
+    quizData?: any; // Quiz answers for webhook integration
   }) => Promise<void>;
 }
 
@@ -109,7 +110,11 @@ export function EmailCaptureForm({ onSubmit }: EmailCaptureFormProps) {
 
     setIsSubmitting(true);
     try {
-      await onSubmit(formData);
+      // Pass form data along with quiz data for webhook integration
+      await onSubmit({
+        ...formData,
+        quizData: a, // Include all quiz answers for Make webhook
+      });
     } catch (error) {
       console.error('Error submitting email capture:', error);
       setErrors({ submit: 'Something went wrong. Please try again.' });
