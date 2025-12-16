@@ -2,6 +2,7 @@ import type { Answers } from '@/lib/store';
 export type ScoreProfile = {
   identity_maturity:number; integration_score:number; pain_intensity:number; budget_score:number; urgency_score:number;
   tier:'low'|'mid'|'high'; offer:'Plinko Pocket'|'Playbook Pro'|'Playbook Plus';
+  score: number; // Overall score out of 100
 };
 export function scoreProfile(a: Answers): ScoreProfile {
   const identity_maturity = a.teamSize==='solo'?0 : a.teamSize==='2-5'?1 : (a.teamSize==='6-20'||a.teamSize==='21+')?2 : 0;
@@ -13,5 +14,10 @@ export function scoreProfile(a: Answers): ScoreProfile {
   const total = identity_maturity+integration_score+pain_intensity+budget_score+urgency_score;
   const tier = total<=4?'low' : total<=7?'mid' : 'high';
   const offer = tier==='low'?'Plinko Pocket' : tier==='mid'?'Playbook Pro' : 'Playbook Plus';
-  return { identity_maturity, integration_score, pain_intensity, budget_score, urgency_score, tier, offer };
+  
+  // Convert total score to 0-100 scale
+  const maxScore = 13; // Sum of all max scores
+  const normalizedScore = Math.round((total / maxScore) * 100);
+  
+  return { identity_maturity, integration_score, pain_intensity, budget_score, urgency_score, tier, offer, score: normalizedScore };
 }
