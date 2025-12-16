@@ -13,5 +13,5 @@ export default function Step3(){
       {key:'skeptical',label:'Skeptical'},
       {key:'daily',label:'Using it daily'},
       {key:'starting',label:'Just getting started'},
-    ]} onPick={(k)=>{ set('sentiment', k as any); router.push('/quiz/4'); }} />);
+    ]} onPick={(k)=>{ set('sentiment', k as any); router.push('/quiz/3.5'); }} />);
 }

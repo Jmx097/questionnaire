@@ -23,7 +23,7 @@ export function IntroSequence({
   },[phase,heyHoldMs,heyDurationMs,nextHref,router]);
 
   return (
-    <main className="relative min-h-dvh flex items-center justify-center text-white">
+    <main className="relative min-h-screen w-full flex items-center justify-center text-white bg-black overflow-hidden">
       {(phase==='HEY_IN'||phase==='HEY_OUT') && (
         <div className="absolute inset-0 grid place-items-center">
           <SplitTextHey text="Hey!" ref={heyRef} />
