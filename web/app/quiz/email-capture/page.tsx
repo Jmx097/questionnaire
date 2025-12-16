@@ -13,25 +13,22 @@ export default function EmailCapture() {
     email: string;
     optInEmails: boolean;
     acceptPrivacy: boolean;
+    quizData?: any;
   }) => {
     try {
-      // Submit to our API endpoint
+      // Submit to our API endpoint with comprehensive data for Make webhook
       const response = await fetch('/api/submit-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...data,
-          segment: a.segment || 'other', // Get segment from quiz state
-          responses: {
-            segment: a.segment,
-            teamSize: a.teamSize,
-            sentiment: a.sentiment,
-            pain: a.pain,
-            valuePerMonth: a.valuePerMonth,
-            urgency: a.urgency,
-          },
+          name: data.name,
+          email: data.email,
+          optInEmails: data.optInEmails,
+          acceptPrivacy: data.acceptPrivacy,
+          segment: a.segment || 'other',
+          quizData: data.quizData || a, // Use quizData from form or fallback to store state
         }),
       });
 
@@ -42,7 +39,7 @@ export default function EmailCapture() {
       const result = await response.json();
       
       // Redirect to results page with confirmation
-      router.push(`/quiz/result?emailSent=true&email=${encodeURIComponent(data.email)}&token=${encodeURIComponent(result.secureLink)}`);
+      router.push(`/quiz/result?emailSent=true&email=${encodeURIComponent(data.email)}&token=${encodeURIComponent(result.secureLink)}&webhook=${result.webhookSent ? 'true' : 'false'}`);
     } catch (error) {
       console.error('Error submitting email capture:', error);
       throw error;

@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSecureLink } from '@/lib/secure-link';
+import { scoreProfile } from '@/config/scoring';
+import type { Answers } from '@/lib/store';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, email, optInEmails, acceptPrivacy, segment } = body;
+    const { name, email, optInEmails, acceptPrivacy, segment, quizData } = body;
 
     // Validate required fields
     if (!name || !email || !acceptPrivacy) {
@@ -26,6 +28,9 @@ export async function POST(request: NextRequest) {
     // Rate limiting check (simple in-memory for demo)
     const clientIP = request.headers.get('x-forwarded-for') || request.ip || 'unknown';
     
+    // Calculate score profile from quiz data
+    const scoreData = quizData ? scoreProfile(quizData as Answers) : null;
+    
     // Create secure link with 7-day expiry
     const secureLink = createSecureLink({
       email,
@@ -33,30 +38,52 @@ export async function POST(request: NextRequest) {
       timestamp: Date.now(),
     });
 
-    // Prepare webhook payload (excluding sensitive data)
+    // Prepare comprehensive Make webhook payload
     const webhookPayload = {
+      // User information
       name,
-      email, // Only include email for external webhook
+      email,
       optInEmails,
-      segment,
-      timestamp: Date.now(),
+      
+      // Quiz responses (Q1-Q5)
+      quiz: {
+        segment: quizData?.segment || segment,
+        teamSize: quizData?.teamSize,
+        sentiment: quizData?.sentiment,
+        tools: quizData?.tools || [],
+        pain: quizData?.pain,
+        pain_other: quizData?.pain_other,
+        valuePerMonth: quizData?.valuePerMonth,
+        urgency: quizData?.urgency,
+      },
+      
+      // Calculated profile and score
+      profile: {
+        segment: segment,
+        score: scoreData?.score || 0,
+        tier: scoreData?.tier || 'low',
+        offer: scoreData?.offer || 'Plinko Pocket',
+        identity_maturity: scoreData?.identity_maturity || 0,
+        integration_score: scoreData?.integration_score || 0,
+        pain_intensity: scoreData?.pain_intensity || 0,
+        budget_score: scoreData?.budget_score || 0,
+        urgency_score: scoreData?.urgency_score || 0,
+      },
+      
+      // Metadata
+      timestamp: new Date().toISOString(),
       source: 'email_capture_form',
+      clientIP,
+      userAgent: request.headers.get('user-agent') || 'unknown',
     };
 
-    // Send to external webhook if configured
-    const externalWebhookUrl = process.env.EXTERNAL_WEBHOOK_URL;
-    if (externalWebhookUrl) {
+    // Send to Make webhook with retry logic
+    const makeWebhookUrl = process.env.MAKE_WEBHOOK_URL;
+    if (makeWebhookUrl) {
       try {
-        await fetch(externalWebhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Webhook-Signature': createWebhookSignature(JSON.stringify(webhookPayload)),
-          },
-          body: JSON.stringify(webhookPayload),
-        });
+        await sendToMakeWebhook(makeWebhookUrl, webhookPayload);
       } catch (error) {
-        console.error('External webhook failed:', error);
+        console.error('Make webhook failed after retries:', error);
         // Continue processing even if webhook fails
       }
     }
@@ -73,6 +100,8 @@ export async function POST(request: NextRequest) {
           name,
           secureLink,
           segment,
+          score: scoreData?.score,
+          tier: scoreData?.tier,
         }),
       });
     } catch (error) {
@@ -87,6 +116,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Email submitted successfully',
       secureLink,
+      webhookSent: !!makeWebhookUrl,
     });
 
   } catch (error) {
@@ -98,8 +128,40 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function createWebhookSignature(payload: string): string {
-  const secret = process.env.WEBHOOK_SECRET_KEY || 'default-secret';
-  // Simple HMAC signature - in production use crypto.createHmac
-  return Buffer.from(payload + secret).toString('base64');
+/**
+ * Send payload to Make webhook with retry logic
+ */
+async function sendToMakeWebhook(url: string, payload: any): Promise<void> {
+  const maxRetries = 3;
+  const retryDelay = 1000; // 1 second
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Webhook-Source': 'questionnaire-app',
+          'X-Webhook-Timestamp': new Date().toISOString(),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        console.log(`Make webhook sent successfully (attempt ${attempt})`);
+        return;
+      } else {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error(`Make webhook attempt ${attempt} failed:`, error);
+      
+      if (attempt === maxRetries) {
+        throw new Error(`Make webhook failed after ${maxRetries} attempts: ${error}`);
+      }
+      
+      // Wait before retry
+      await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+    }
+  }
 }
