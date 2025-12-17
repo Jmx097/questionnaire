@@ -27,5 +27,16 @@
     "eqeqeq": ["error", "always"],
     "curly": ["error", "multi-line"],
     "brace-style": ["error", "1tbs", { "allowSingleLine": true }]
-  }
+  },
+  "overrides": [
+    {
+      "files": ["tests/**/*.js"],
+      "parserOptions": {
+        "sourceType": "module"
+      },
+      "env": {
+        "jest": true
+      }
+    }
+  ]
 }
