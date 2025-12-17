@@ -1,30 +1,3 @@
-<<<<<<< HEAD
-"use client";
-import React from "react";
-import { useRouter } from "next/navigation";
-import { useQuiz } from "@/lib/store";
-import { QuestionRevealPage } from "@/components/questions/QuestionRevealPage";
-
-export default function Step5() {
-  const router = useRouter();
-  const { set } = useQuiz();
-
-  return (
-    <QuestionRevealPage
-      title="If we fixed that one thing, about how much would it be worth each month?"
-      note="A rough guess is perfect—this just helps me right-size."
-      answers={[
-        { key: "250", label: "$0–$499" },
-        { key: "1200", label: "$500–$1.9k" },
-        { key: "3000", label: "$2k–$4.9k" },
-        { key: "6000", label: "$5k+" },
-      ]}
-      onPick={(k) => {
-        set("valuePerMonth", Number(k));
-        router.push("/quiz/6");
-      }}
-    />
-=======
 'use client';
 import React,{useState} from 'react';
 import { useRouter } from 'next/navigation';
@@ -57,7 +30,6 @@ export default function Step5(){
                 key={answer.key}
                 className="bg-emerald-600 group bento-tile relative overflow-hidden rounded-2xl border border-white/10 p-5 text-left transition will-change-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
                 onClick={() => { 
-                  console.log('Value answer clicked:', answer.key);
                   set('valuePerMonth', Number(answer.key)); 
                   setStage('urgency'); 
                 }}
@@ -93,9 +65,7 @@ export default function Step5(){
               key={answer.key}
               className="bg-cyan-600 group bento-tile relative overflow-hidden rounded-2xl border border-white/10 p-5 text-left transition will-change-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
               onClick={() => { 
-                console.log('Urgency answer clicked:', answer.key);
                 set('urgency', answer.key as any); 
-                console.log('About to navigate to email-capture');
                 router.push('/quiz/email-capture'); 
               }}
             >
@@ -113,6 +83,5 @@ export default function Step5(){
         </div>
       </section>
     </main>
->>>>>>> 51620b5610f5e321d4a6ac7ac22103b01db410d4
   );
 }
